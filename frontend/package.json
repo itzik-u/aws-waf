@@ -14,14 +14,10 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.4",
     "@mui/lab": "^6.0.0-beta.27",
-    "@mui/x-tree-view": "^7.26.0",
     "axios": "^1.7.9",
     "dagre": "^0.8.5",
-    "mermaid": "^11.4.1",
     "react": "18.2.0",
-    "react-d3-tree": "^3.6.5",
     "react-dom": "18.2.0",
-    "react-flow-renderer": "^10.3.17",
     "reactflow": "^11.11.4"
   },
   "devDependencies": {
@@ -33,7 +29,6 @@
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.18",
-    "globals": "^15.14.0",
     "vite": "^6.1.0"
   }
 }
