@@ -9,7 +9,6 @@ import WafTree from "./components/WafTree";
 import WafRulesFlow from "./components/WafRulesFlow";
 import WAFRuleTree from "./components/ruleCheck";
 // The new integrated WAF+Logs DAGRE flow
-import WafLogsDagreFlow from "./components/WafLogsDagreFlow";
 
 export default function App() {
   const [view, setView] = useState("dagre");
@@ -67,7 +66,6 @@ export default function App() {
       {view === "dagre" && <WafTreeDagreDetailed />}
       {view === "ifelse" && <WafTreeIfElseDetailed />}
       {view === "simple" && <WafTree />}
-      {view === "logsFlow" && <WafLogsDagreFlow />}
     </Container>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import wafRules from '../data/wafRules.json';
+import wafRules from '../data/appsflyerRules.json';
 
 /**
  * Recursively find all label keys from nested WAF statements.
