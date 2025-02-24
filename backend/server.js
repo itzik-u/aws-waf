@@ -1,40 +1,61 @@
 import express from "express";
 import cors from "cors";
-import { WAFV2Client, ListWebACLsCommand, GetWebACLCommand, GetRuleGroupCommand } from "@aws-sdk/client-wafv2";
+import dotenv from "dotenv";
+
+// AWS WAF
+import {
+  WAFV2Client,
+  ListWebACLsCommand,
+  GetWebACLCommand,
+  GetRuleGroupCommand
+} from "@aws-sdk/client-wafv2";
+
+// CloudWatch Logs
+import {
+  CloudWatchLogsClient,
+  FilterLogEventsCommand
+} from "@aws-sdk/client-cloudwatch-logs";
+
+dotenv.config();
 
 const app = express();
-const PORT = 5000;
-
-// AWS WAF Client
-const wafClient = new WAFV2Client({
-  region: "us-east-1",
-});
-
 app.use(cors());
 
-// Function to fetch all Web ACLs
+// ============ 1) AWS WAF Client Setup ===============
+const wafClient = new WAFV2Client({
+  region: process.env.AWS_REGION || "us-east-1",
+});
+
+// ============ 2) CloudWatch Logs Client Setup ========
+const cwlClient = new CloudWatchLogsClient({
+  region: process.env.AWS_REGION || "us-east-1",
+});
+
+// ============ 3) Existing code for WAF ACLs ===========
+
+/** Retrieve a list of WebACLs. */
 async function listWafAcls() {
   try {
-    console.log("🔍 Fetching WAF ACLs from AWS...");
-    const command = new ListWebACLsCommand({ Scope: "CLOUDFRONT" });
+    console.log("🔍 Fetching WAF ACLs...");
+    const command = new ListWebACLsCommand({ Scope: "CLOUDFRONT" }); 
+    // or "REGIONAL", depending on your usage
     const response = await wafClient.send(command);
-
-    console.log("✅ AWS Response for listWebACLs:", JSON.stringify(response, null, 2));
     return response.WebACLs || [];
   } catch (error) {
-    console.error("❌ Error fetching WAF ACLs:", error);
+    console.error("❌ Error listing WAF ACLs:", error);
     return [];
   }
 }
 
-// Function to get details of a specific Web ACL
+/** Get full details (rules, rule groups) for a given WebACL. */
 async function getAclDetails(aclId, aclName) {
   try {
-    console.log(`🔍 Fetching details for ACL: ${aclName} (ID: ${aclId})`);
-    const command = new GetWebACLCommand({ Id: aclId, Name: aclName, Scope: "CLOUDFRONT" });
+    const command = new GetWebACLCommand({
+      Id: aclId,
+      Name: aclName,
+      Scope: "CLOUDFRONT"
+    });
     const response = await wafClient.send(command);
-
-    console.log(`✅ Details for ACL ${aclName}:`, JSON.stringify(response, null, 2));
     return response.WebACL || null;
   } catch (error) {
     console.error(`❌ Error fetching details for ACL ${aclName}:`, error);
@@ -42,75 +63,117 @@ async function getAclDetails(aclId, aclName) {
   }
 }
 
-// Function to fetch rule group details (fetches sub-rules)
+/** Fetch rule group details for sub-rules. */
 async function getRuleGroupDetails(ruleGroupArn) {
   try {
-    console.log(`🔍 Fetching Rule Group Details for ARN: ${ruleGroupArn}`);
-    const command = new GetRuleGroupCommand({ ARN: ruleGroupArn, Scope: "CLOUDFRONT" });
+    const command = new GetRuleGroupCommand({
+      ARN: ruleGroupArn,
+      Scope: "CLOUDFRONT"
+    });
     const response = await wafClient.send(command);
-
-    console.log(`✅ Rule Group Details for ${ruleGroupArn}:`, JSON.stringify(response, null, 2));
     return response.RuleGroup || null;
   } catch (error) {
-    console.error(`❌ Error fetching Rule Group ${ruleGroupArn}:`, error);
+    console.error(`❌ Error fetching RuleGroup ${ruleGroupArn}:`, error);
     return null;
   }
 }
 
-// API Endpoint: Get WAF ACLs with rules and rule group details
+/**
+ * GET /api/waf-acls
+ * - Lists all WebACLs
+ * - For each, fetches details, plus references to sub rule groups
+ */
 app.get("/api/waf-acls", async (req, res) => {
   try {
-    console.log("🚀 API Request: Fetching all WAF ACLs...");
+    console.log("🚀 /api/waf-acls request...");
     const acls = await listWafAcls();
-
-    if (acls.length === 0) {
-      console.warn("⚠️ No WAF ACLs found.");
+    if (!acls.length) {
       return res.json([]);
     }
 
-    console.log(`📌 Found ${acls.length} ACLs. Fetching details...`);
-
+    // For each ACL, fetch details & sub-rules
     const detailedAcls = await Promise.all(
       acls.map(async (acl) => {
-        console.log(`🔍 Processing ACL: ${acl.Name} (ID: ${acl.Id})`);
         const details = await getAclDetails(acl.Id, acl.Name);
+        if (!details) return acl;
 
-        if (!details) {
-          console.warn(`⚠️ No details found for ACL: ${acl.Name}`);
-          return acl;
-        }
-
-        // Fetch rule group details for rules referencing a rule group
+        // For each top-level rule referencing a rule group, fetch group details
         const rulesWithGroups = await Promise.all(
-          details.Rules.map(async (rule, index) => {
-            console.log(`📌 Processing Rule ${index + 1}: ${rule.Name}`);
-
+          details.Rules.map(async (rule) => {
             if (rule.Statement?.RuleGroupReferenceStatement) {
-              const ruleGroupDetails = await getRuleGroupDetails(
-                rule.Statement.RuleGroupReferenceStatement.ARN
-              );
-              if (ruleGroupDetails) {
-                rule.RuleGroup = ruleGroupDetails;
+              const rgArn = rule.Statement.RuleGroupReferenceStatement.ARN;
+              const rgDetails = await getRuleGroupDetails(rgArn);
+              if (rgDetails) {
+                rule.RuleGroup = rgDetails;
               }
             }
             return rule;
           })
         );
-
         details.Rules = rulesWithGroups;
         return details;
       })
     );
 
-    console.log("✅ Final Processed ACL Data:", JSON.stringify(detailedAcls, null, 2));
+    console.log("✅ Final ACL data:", JSON.stringify(detailedAcls, null, 2));
     res.json(detailedAcls);
   } catch (error) {
-    console.error("❌ Error fetching WAF data:", error);
+    console.error("❌ Error in /api/waf-acls:", error);
     res.status(500).json({ error: "Error fetching WAF ACLs" });
   }
 });
 
-// Start server
+// ============ 4) New code for WAF logs from CloudWatch ============
+
+/**
+ * GET /api/waf-logs
+ * - Fetches recent WAF log events from a specified CloudWatch Logs group.
+ */
+app.get("/api/waf-logs", async (req, res) => {
+  try {
+    // Name of your WAF log group in CloudWatch (must match what's configured in WAF logging)
+    const LOG_GROUP_NAME = process.env.WAF_LOG_GROUP_NAME || "/aws/waf/MyWebACLLogs";
+
+    // Example: last 15 minutes
+    const now = Date.now();
+    const fifteenMinutesAgo = now - 15 * 60 * 1000;
+
+    const params = {
+      logGroupName: LOG_GROUP_NAME,
+      startTime: fifteenMinutesAgo,
+      endTime: now,
+      limit: 50
+    };
+
+    const command = new FilterLogEventsCommand(params);
+    const response = await cwlClient.send(command);
+
+    // Turn each CloudWatch event into a structured object
+    const logs = response.events?.map((evt) => {
+      let parsedMessage;
+      try {
+        parsedMessage = JSON.parse(evt.message);
+      } catch (err) {
+        parsedMessage = { raw: evt.message };
+      }
+      return {
+        id: evt.eventId,
+        timestamp: evt.timestamp,
+        log: parsedMessage
+      };
+    }) || [];
+
+    console.log(`✅ Fetched ${logs.length} log events from CloudWatch`);
+    res.json(logs);
+  } catch (error) {
+    console.error("❌ Error in /api/waf-logs:", error);
+    res.status(500).json({ error: "Error fetching WAF logs" });
+  }
+});
+
+// ============ 5) Start the Server ============
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

@@ -6,35 +6,20 @@ import "reactflow/dist/style.css";
 
 /**
  * Utility to figure out the main action label (Block / Allow / Captcha / None)
- * from either `rule.Action` or `rule.OverrideAction`.
  */
 function getRuleAction(rule) {
-  // If a top-level rule has `Action`, use that
   if (rule.Action) {
-    const actionKey = Object.keys(rule.Action)[0]; // e.g. "Block" / "Allow" / "Captcha" ...
-    return actionKey;
+    return Object.keys(rule.Action)[0]; 
   }
-  // Otherwise check if there's an OverrideAction (like "None")
   if (rule.OverrideAction) {
-    const overrideKey = Object.keys(rule.OverrideAction)[0]; // e.g. "None"
-    return overrideKey;
+    return Object.keys(rule.OverrideAction)[0]; 
   }
   return "None";
 }
 
-/**
- * Build up nodes/edges for a single RuleGroup’s sub-rules recursively.
- *
- * @param {Object} ruleGroup - The `RuleGroup` object (with `Rules` array).
- * @param {string} parentId - The node ID we’ll connect from.
- * @param {number} startY - The vertical position to start placing sub-rules.
- * @param {Array} nodes - Existing node array to push onto.
- * @param {Array} edges - Existing edge array to push onto.
- * @returns {number} new Y offset after we place all sub-rules
- */
+/** Recursively add sub‐rule nodes for a RuleGroup. */
 function addRuleGroupNodes(ruleGroup, parentId, startY, nodes, edges) {
   let yOffset = startY;
-  // For each sub-rule in the group:
   ruleGroup.Rules?.forEach((subRule, subIndex) => {
     const actionLabel = getRuleAction(subRule);
     const nodeId = `subrule-${ruleGroup.Name}-${subRule.Name}-${subIndex}`;
@@ -52,7 +37,6 @@ function addRuleGroupNodes(ruleGroup, parentId, startY, nodes, edges) {
       }
     });
 
-    // Edge from the parent to this sub-rule
     edges.push({
       id: `e-${parentId}-${nodeId}`,
       source: parentId,
@@ -60,23 +44,16 @@ function addRuleGroupNodes(ruleGroup, parentId, startY, nodes, edges) {
       animated: true
     });
 
-    // If this sub-rule also has a nested RuleGroup, recurse:
     if (subRule.RuleGroup) {
       yOffset = addRuleGroupNodes(subRule.RuleGroup, nodeId, yOffset + 100, nodes, edges);
     } else {
       yOffset += 100;
     }
   });
-
   return yOffset;
 }
 
-/**
- * Builds the flow diagram for a single ACL:
- * 1. Create a root ACL node
- * 2. For each top-level rule, add a node
- * 3. If it references a RuleGroup, recursively add sub-rules
- */
+/** Build a simple top‐down flow (no auto‐layout) for one ACL. */
 function generateFlowDiagram(acl) {
   const nodes = [];
   const edges = [];
@@ -109,7 +86,6 @@ function generateFlowDiagram(acl) {
       style: { background: "#87CEEB", padding: 10, borderRadius: 10 }
     });
 
-    // Edge from ACL node to this rule
     edges.push({
       id: `e-acl-rule-${ruleIndex}`,
       source: aclNodeId,
@@ -117,7 +93,6 @@ function generateFlowDiagram(acl) {
       animated: true
     });
 
-    // If the rule references a nested RuleGroup, add its sub-rules
     if (rule.RuleGroup) {
       yOffset = addRuleGroupNodes(rule.RuleGroup, ruleNodeId, yOffset + 100, nodes, edges);
     } else {
@@ -128,7 +103,7 @@ function generateFlowDiagram(acl) {
   return { nodes, edges };
 }
 
-const WafTree = () => {
+export default function WafTree() {
   const [wafAcls, setWafAcls] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -160,7 +135,7 @@ const WafTree = () => {
   return (
     <Container style={{ marginTop: 20 }}>
       <Typography variant="h4" align="center" gutterBottom>
-        AWS WAF ACL Flow
+        AWS WAF - Simple Flow
       </Typography>
 
       {wafAcls.map((acl, index) => {
@@ -179,6 +154,4 @@ const WafTree = () => {
       })}
     </Container>
   );
-};
-
-export default WafTree;
+}

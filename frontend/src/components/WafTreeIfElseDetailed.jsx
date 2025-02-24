@@ -4,29 +4,26 @@ import axios from "axios";
 import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
 
-import layoutGraph from "./layoutGraph";  // Our Dagre helper
+import layoutGraph from "./layoutGraph";  // Dagre
 
-/** Return the main action from a rule’s Action / OverrideAction. */
 function getActionLabel(rule) {
   if (rule.Action) {
-    return Object.keys(rule.Action)[0]; // e.g. "Block", "Allow", "Captcha"
+    return Object.keys(rule.Action)[0];
   }
   if (rule.OverrideAction) {
-    return Object.keys(rule.OverrideAction)[0]; // e.g. "None"
+    return Object.keys(rule.OverrideAction)[0];
   }
   return "None";
 }
 
-/** Given an action like "Block", return a friendly label to show if it stops or continues. */
 function formatActionLabel(action) {
-  // If it’s a “stop” action, label it accordingly
   switch (action) {
     case "Block":
       return "Action: Block (Stop)";
     case "Captcha":
       return "Action: Captcha (Stop)";
     case "Allow":
-      return "Action: Allow (Stop)"; // if matched, presumably we stop
+      return "Action: Allow (Stop)";
     case "None":
       return "Action: None (Continue)";
     default:
@@ -34,14 +31,7 @@ function formatActionLabel(action) {
   }
 }
 
-/**
- * Build a chain of sub‐rules for one RuleGroup (in ascending priority).
- * - For each sub‐rule, create:
- *    - A "diamond" node: "Check sub‐rule: {Name}"
- *    - An action node: "Action: ???"
- *    - "Matched =>" edge from diamond to action
- *    - "Not Matched =>" edge from diamond to next sub‐rule
- */
+/** Sub‐rule chain builder */
 function buildSubRuleChain(parentNodeId, ruleGroup, nodes, edges) {
   const sortedSubRules = [...(ruleGroup.Rules || [])].sort((a, b) => a.Priority - b.Priority);
 
@@ -49,23 +39,22 @@ function buildSubRuleChain(parentNodeId, ruleGroup, nodes, edges) {
   let lastDiamond = null;
 
   sortedSubRules.forEach((subRule, idx) => {
-    // Diamond node for sub‐rule check
     const diamondId = `${parentNodeId}-subCheck-${idx}`;
-    const subActionId = `${parentNodeId}-subAction-${idx}`;
+    const actionId = `${parentNodeId}-subAction-${idx}`;
     const subAction = getActionLabel(subRule);
     const diamondLabel = `Check sub‐rule: ${subRule.Name}\nPriority: ${subRule.Priority}`;
 
+    // Diamond node
     nodes.push({
       id: diamondId,
       data: { label: diamondLabel },
       position: { x: 0, y: 0 },
       style: {
-        background: "#fbbf24", // orange
+        background: "#fbbf24",
         padding: 10,
         borderRadius: 8,
       },
     });
-
     edges.push({
       id: `edge-${currentDiamond}-to-${diamondId}`,
       source: currentDiamond,
@@ -74,112 +63,8 @@ function buildSubRuleChain(parentNodeId, ruleGroup, nodes, edges) {
       animated: true,
     });
 
-    // Action node if matched
-    const actionLabel = formatActionLabel(subAction);
-    nodes.push({
-      id: subActionId,
-      data: { label: actionLabel },
-      position: { x: 0, y: 0 },
-      style: {
-        background: "#fde047", // yellow
-        padding: 10,
-        borderRadius: 8,
-      },
-    });
-    edges.push({
-      id: `edge-${diamondId}-to-${subActionId}`,
-      source: diamondId,
-      target: subActionId,
-      label: "Matched =>",
-      animated: true,
-    });
-
-    // If subRule itself has a nested RuleGroup, recursively build that chain
-    if (subRule.RuleGroup) {
-      const subGroupStartId = `${subActionId}-subGroupStart-${idx}`;
-      nodes.push({
-        id: subGroupStartId,
-        data: { label: `SubRules of ${subRule.Name}` },
-        position: { x: 0, y: 0 },
-        style: {
-          background: "#4ade80", // green
-          color: "#fff",
-          padding: 10,
-          borderRadius: 8,
-        },
-      });
-      edges.push({
-        id: `edge-${subActionId}-to-${subGroupStartId}`,
-        source: subActionId,
-        target: subGroupStartId,
-        label: "(Continue) => sub-rules",
-        animated: true,
-      });
-      // Recurse
-      buildSubRuleChain(subGroupStartId, subRule.RuleGroup, nodes, edges);
-    }
-
-    currentDiamond = diamondId; // for the next sub‐rule’s "Not Matched =>"
-    lastDiamond = diamondId;
-  });
-
-  return lastDiamond; // the last diamond we made
-}
-
-/**
- * Build the full short-circuit chain for each top-level rule.
- * For each rule:
- *   - Diamond: "Check {rule.name}"
- *   - Action node if matched
- *   - If rule has RuleGroup, build sub‐rules
- *   - If not matched, go to the next top-level rule
- */
-function buildTopLevelRuleChain(acl, nodes, edges) {
-  const sortedRules = [...(acl.Rules || [])].sort((a, b) => a.Priority - b.Priority);
-
-  const startId = `start-acl-${acl.Id}`;
-  nodes.push({
-    id: startId,
-    data: { label: `Start - ACL: ${acl.Name}` },
-    position: { x: 0, y: 0 },
-    style: {
-      background: "#3b82f6", // blue
-      color: "#fff",
-      padding: 10,
-      borderRadius: 8,
-    },
-  });
-
-  let currentDiamond = startId;
-  let lastDiamond = null;
-
-  sortedRules.forEach((rule, index) => {
-    const diamondId = `ruleCheck-${acl.Id}-${index}`;
-    const actionId = `ruleAction-${acl.Id}-${index}`;
-    const ruleAction = getActionLabel(rule);
-
-    // Diamond node
-    nodes.push({
-      id: diamondId,
-      data: { label: `Check: ${rule.Name}\nPriority: ${rule.Priority}` },
-      position: { x: 0, y: 0 },
-      style: {
-        background: "#fbbf24",
-        padding: 10,
-        borderRadius: 8,
-      },
-    });
-    // Edge from previous diamond to this diamond
-    edges.push({
-      id: `edge-${currentDiamond}-to-${diamondId}`,
-      source: currentDiamond,
-      target: diamondId,
-      label: "Not Matched => next rule",
-      animated: true,
-    });
-
     // Action node
-    const actionLabel = formatActionLabel(ruleAction);
+    const actionLabel = formatActionLabel(subAction);
     nodes.push({
       id: actionId,
       data: { label: actionLabel },
@@ -198,7 +83,102 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
       animated: true,
     });
 
-    // If rule has a sub-rule group, build chain from the action node
+    // If sub-sub-rules exist, chain them
+    if (subRule.RuleGroup) {
+      const subGroupStartId = `${actionId}-subGroupStart-${idx}`;
+      nodes.push({
+        id: subGroupStartId,
+        data: { label: `SubRules of ${subRule.Name}` },
+        position: { x: 0, y: 0 },
+        style: {
+          background: "#4ade80",
+          color: "#fff",
+          padding: 10,
+          borderRadius: 8,
+        },
+      });
+      edges.push({
+        id: `edge-${actionId}-to-${subGroupStartId}`,
+        source: actionId,
+        target: subGroupStartId,
+        label: "(Continue) => sub-rules",
+        animated: true,
+      });
+      buildSubRuleChain(subGroupStartId, subRule.RuleGroup, nodes, edges);
+    }
+
+    currentDiamond = diamondId;
+    lastDiamond = diamondId;
+  });
+
+  return lastDiamond;
+}
+
+/** For each top-level rule => diamond + action + optional sub-rules. */
+function buildTopLevelRuleChain(acl, nodes, edges) {
+  const sortedRules = [...(acl.Rules || [])].sort((a, b) => a.Priority - b.Priority);
+
+  const startId = `start-acl-${acl.Id}`;
+  nodes.push({
+    id: startId,
+    data: { label: `Start - ACL: ${acl.Name}` },
+    position: { x: 0, y: 0 },
+    style: {
+      background: "#3b82f6",
+      color: "#fff",
+      padding: 10,
+      borderRadius: 8,
+    },
+  });
+
+  let currentDiamond = startId;
+  let lastDiamond = null;
+
+  sortedRules.forEach((rule, index) => {
+    const diamondId = `ruleCheck-${acl.Id}-${index}`;
+    const actionId = `ruleAction-${acl.Id}-${index}`;
+    const rAction = getActionLabel(rule);
+
+    // Diamond: check rule?
+    nodes.push({
+      id: diamondId,
+      data: { label: `Check: ${rule.Name}\nPriority: ${rule.Priority}` },
+      position: { x: 0, y: 0 },
+      style: {
+        background: "#fbbf24",
+        padding: 10,
+        borderRadius: 8,
+      },
+    });
+    edges.push({
+      id: `edge-${currentDiamond}-to-${diamondId}`,
+      source: currentDiamond,
+      target: diamondId,
+      label: "Not Matched => next rule",
+      animated: true,
+    });
+
+    // Action node if matched
+    const actionLabel = formatActionLabel(rAction);
+    nodes.push({
+      id: actionId,
+      data: { label: actionLabel },
+      position: { x: 0, y: 0 },
+      style: {
+        background: "#fde047",
+        padding: 10,
+        borderRadius: 8,
+      },
+    });
+    edges.push({
+      id: `edge-${diamondId}-to-${actionId}`,
+      source: diamondId,
+      target: actionId,
+      label: "Matched =>",
+      animated: true,
+    });
+
+    // Sub-rules
     if (rule.RuleGroup) {
       const subGroupStartId = `${actionId}-subGroupStart`;
       nodes.push({
@@ -220,13 +200,12 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
         animated: true,
       });
 
-      const lastSubDiamond = buildSubRuleChain(subGroupStartId, rule.RuleGroup, nodes, edges);
-      // If no sub‐rule matched, link from the last diamond back to the next top-level rule
-      if (lastSubDiamond) {
+      const lastSub = buildSubRuleChain(subGroupStartId, rule.RuleGroup, nodes, edges);
+      if (lastSub) {
         edges.push({
-          id: `edge-${lastSubDiamond}-to-next-${index}`,
-          source: lastSubDiamond,
-          target: `ruleCheck-${acl.Id}-${index + 1}`, // next rule diamond
+          id: `edge-${lastSub}-to-next-${index}`,
+          source: lastSub,
+          target: `ruleCheck-${acl.Id}-${index + 1}`,
           label: "No sub‐rule matched => next top‐level rule",
           animated: true,
         });
@@ -237,7 +216,7 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
     lastDiamond = diamondId;
   });
 
-  // Finally, default action node
+  // final default
   const defaultActionKey = Object.keys(acl.DefaultAction || { None: {} })[0] || "None";
   const defaultId = `defaultAction-${acl.Id}`;
   nodes.push({
@@ -245,7 +224,7 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
     data: { label: `DefaultAction => ${defaultActionKey}` },
     position: { x: 0, y: 0 },
     style: {
-      background: "#10b981", // green
+      background: "#10b981",
       color: "#fff",
       padding: 10,
       borderRadius: 8,
@@ -260,19 +239,16 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
   });
 }
 
-/** Master function to build the full graph for one ACL, then run Dagre layout. */
 function generateFlow(acl) {
   const nodes = [];
   const edges = [];
-
   buildTopLevelRuleChain(acl, nodes, edges);
 
-  // Now run Dagre to auto‐layout
   const { nodes: outNodes, edges: outEdges } = layoutGraph(nodes, edges, "TB");
   return { nodes: outNodes, edges: outEdges };
 }
 
-export default function WafTreeIfElseAutoLayout() {
+export default function WafTreeIfElseDetailed() {
   const [acls, setAcls] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -292,7 +268,7 @@ export default function WafTreeIfElseAutoLayout() {
   return (
     <Container style={{ marginTop: 20 }}>
       <Typography variant="h4" align="center" gutterBottom>
-        AWS WAF If–Then–Else Flow with Clear Labels
+        AWS WAF If–Then–Else Flow
       </Typography>
 
       {acls.map((acl, idx) => {

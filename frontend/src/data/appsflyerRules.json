@@ -1,0 +1,2217 @@
+{
+  "LibRules": [
+    {
+      "Name": "rule-1",
+      "Priority": 0,
+      "Statement": {
+        "ByteMatchStatement": {
+          "SearchString": "/path1/",
+          "FieldToMatch": {
+            "UriPath": {}
+          },
+          "TextTransformations": [
+            {
+              "Priority": 0,
+              "Type": "NONE"
+            }
+          ],
+          "PositionalConstraint": "STARTS_WITH"
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "rule_label_click"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-1-metric"
+      }
+    },
+    {
+      "Name": "rule-2",
+      "Priority": 1,
+      "Statement": {
+        "ByteMatchStatement": {
+          "SearchString": "/path2/",
+          "FieldToMatch": {
+            "UriPath": {}
+          },
+          "TextTransformations": [
+            {
+              "Priority": 0,
+              "Type": "NONE"
+            }
+          ],
+          "PositionalConstraint": "STARTS_WITH"
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "rule_label_impression"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-2-metric"
+      }
+    },
+    {
+      "Name": "rule-3",
+      "Priority": 2,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 100,
+          "EvaluationWindowSec": 60,
+          "AggregateKeyType": "IP",
+          "ScopeDownStatement": {
+            "NotStatement": {
+              "Statement": {
+                "LabelMatchStatement": {
+                  "Scope": "LABEL",
+                  "Key": "generic_s2s"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Action": {
+        "Count": {
+          "CustomRequestHandling": {
+            "InsertHeaders": [
+              {
+                "Name": "generic_s2s",
+                "Value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_s2s"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-3-metric"
+      }
+    },
+    {
+      "Name": "rule-4",
+      "Priority": 3,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^(partner_a|partner_b|partner_c|partner_d|partner_e)",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^\\S",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "signature"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-4-metric"
+      }
+    },
+    {
+      "Name": "rule-5",
+      "Priority": 4,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^\\/(app1|app2|app3)",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_a",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_apps_1"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-5-metric"
+      }
+    },
+    {
+      "Name": "rule-6",
+      "Priority": 5,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^\\/(app4|app5)",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_b",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_apps_2"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-6-metric"
+      }
+    },
+    {
+      "Name": "rule-7",
+      "Priority": 6,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^\\/(app4|app5)",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_c",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_apps_3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-7-metric"
+      }
+    },
+    {
+      "Name": "rule-8",
+      "Priority": 7,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^\\/(app6)",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_d",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_apps_4"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-8-metric"
+      }
+    },
+    {
+      "Name": "rule-9",
+      "Priority": 8,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "/generic-partner",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "STARTS_WITH"
+              }
+            },
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^(partner_e|partner_b)",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_apps_5"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-9-metric"
+      }
+    },
+    {
+      "Name": "rule-10",
+      "Priority": 9,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_partner_apps_1"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_partner_apps_2"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_partner_apps_3"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_partner_apps_4"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_sanity_check"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-10-metric"
+      }
+    },
+    {
+      "Name": "rule-11",
+      "Priority": 10,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_d",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_1",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_ja3_1"
+        },
+        {
+          "Name": "generic_trusted_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-11-metric"
+      }
+    },
+    {
+      "Name": "rule-12",
+      "Priority": 11,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^(partner_c_variant|partner_c)",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_2",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_ja3_2"
+        },
+        {
+          "Name": "generic_trusted_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-12-metric"
+      }
+    },
+    {
+      "Name": "rule-13",
+      "Priority": 12,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_b",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_3",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^\\S",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "signature"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_ja3_3"
+        },
+        {
+          "Name": "generic_trusted_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-13-metric"
+      }
+    },
+    {
+      "Name": "rule-14",
+      "Priority": 13,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_a",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_4",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_ja3_4"
+        },
+        {
+          "Name": "generic_trusted_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-14-metric"
+      }
+    },
+    {
+      "Name": "rule-15",
+      "Priority": 14,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "partner_e",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_5",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_ja3_5"
+        },
+        {
+          "Name": "generic_trusted_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-15-metric"
+      }
+    },
+    {
+      "Name": "rule-16",
+      "Priority": 15,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "RegexMatchStatement": {
+                "RegexString": "^(partner_b|partner_e)",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "pid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ]
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_6",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_ja3_6"
+        },
+        {
+          "Name": "generic_trusted_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-16-metric"
+      }
+    },
+    {
+      "Name": "rule-17",
+      "Priority": 16,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_partner"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_sanity_check"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_partner_apps_5"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_trusted_ja3"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_partner_sanity"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-17-metric"
+      }
+    },
+    {
+      "Name": "rule-18",
+      "Priority": 17,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "RegexPatternSetReferenceStatement": {
+                "ARN": "arn:aws:wafv2:us-east-1:123456789012:global/regexpatternset/generic-set-1",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  }
+                ]
+              }
+            },
+            {
+              "RegexPatternSetReferenceStatement": {
+                "ARN": "arn:aws:wafv2:us-east-1:123456789012:global/regexpatternset/generic-set-2",
+                "FieldToMatch": {
+                  "UriPath": {}
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {
+          "CustomRequestHandling": {
+            "InsertHeaders": [
+              {
+                "Name": "generic_abusive",
+                "Value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_abusive_app"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-18-metric"
+      }
+    },
+    {
+      "Name": "rule-19",
+      "Priority": 18,
+      "Statement": {
+        "RegexMatchStatement": {
+          "RegexString": "(?i)^\\/(app7|app8|app9|app10|app11|app12|app13)",
+          "FieldToMatch": {
+            "UriPath": {}
+          },
+          "TextTransformations": [
+            {
+              "Priority": 0,
+              "Type": "NONE"
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {
+          "CustomRequestHandling": {
+            "InsertHeaders": [
+              {
+                "Name": "generic_abusive",
+                "Value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_abusive_app"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-19-metric"
+      }
+    },
+    {
+      "Name": "rule-20",
+      "Priority": 19,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 1000000,
+          "EvaluationWindowSec": 600,
+          "AggregateKeyType": "CUSTOM_KEYS",
+          "ScopeDownStatement": {
+            "AndStatement": {
+              "Statements": [
+                {
+                  "NotStatement": {
+                    "Statement": {
+                      "ByteMatchStatement": {
+                        "SearchString": "/generic_exclude_app",
+                        "FieldToMatch": {
+                          "UriPath": {}
+                        },
+                        "TextTransformations": [
+                          {
+                            "Priority": 0,
+                            "Type": "COMPRESS_WHITE_SPACE"
+                          },
+                          {
+                            "Priority": 1,
+                            "Type": "LOWERCASE"
+                          }
+                        ],
+                        "PositionalConstraint": "CONTAINS"
+                      }
+                    }
+                  }
+                },
+                {
+                  "NotStatement": {
+                    "Statement": {
+                      "LabelMatchStatement": {
+                        "Scope": "LABEL",
+                        "Key": "generic_abusive_app"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "CustomKeys": [
+            {
+              "UriPath": {
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_noisy_apps"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-20-metric"
+      }
+    },
+    {
+      "Name": "rule-21",
+      "Priority": 20,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_abusive_app"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_noisy_apps"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {
+          "CustomRequestHandling": {
+            "InsertHeaders": [
+              {
+                "Name": "generic_treated",
+                "Value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_treated"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-21-metric"
+      }
+    },
+    {
+      "Name": "rule-22",
+      "Priority": 21,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 40000,
+          "EvaluationWindowSec": 60,
+          "AggregateKeyType": "CUSTOM_KEYS",
+          "ScopeDownStatement": {
+            "AndStatement": {
+              "Statements": [
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_treated"
+                  }
+                },
+                {
+                  "NotStatement": {
+                    "Statement": {
+                      "LabelMatchStatement": {
+                        "Scope": "LABEL",
+                        "Key": "generic_abusive_block"
+                      }
+                    }
+                  }
+                },
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_click"
+                  }
+                }
+              ]
+            }
+          },
+          "CustomKeys": [
+            {
+              "UriPath": {
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "LOWERCASE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  }
+                ]
+              }
+            },
+            {
+              "QueryArgument": {
+                "Name": "pid",
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Block": {
+          "CustomResponse": {
+            "ResponseCode": 200,
+            "CustomResponseBodyKey": "200_OK"
+          }
+        }
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_abusive_block"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-22-metric"
+      }
+    },
+    {
+      "Name": "rule-23",
+      "Priority": 22,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 5000000,
+          "EvaluationWindowSec": 300,
+          "AggregateKeyType": "CUSTOM_KEYS",
+          "ScopeDownStatement": {
+            "AndStatement": {
+              "Statements": [
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_noisy_apps"
+                  }
+                },
+                {
+                  "RegexMatchStatement": {
+                    "RegexString": "^\\S",
+                    "FieldToMatch": {
+                      "SingleQueryArgument": {
+                        "Name": "pid"
+                      }
+                    },
+                    "TextTransformations": [
+                      {
+                        "Priority": 0,
+                        "Type": "NONE"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "NotStatement": {
+                    "Statement": {
+                      "RegexMatchStatement": {
+                        "RegexString": "\\s|\\S",
+                        "FieldToMatch": {
+                          "SingleQueryArgument": {
+                            "Name": "af_prt"
+                          }
+                        },
+                        "TextTransformations": [
+                          {
+                            "Priority": 0,
+                            "Type": "NONE"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_impression"
+                  }
+                }
+              ]
+            }
+          },
+          "CustomKeys": [
+            {
+              "UriPath": {
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "LOWERCASE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  }
+                ]
+              }
+            },
+            {
+              "QueryArgument": {
+                "Name": "pid",
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Block": {
+          "CustomResponse": {
+            "ResponseCode": 200,
+            "CustomResponseBodyKey": "200_OK"
+          }
+        }
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_abusive_block"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-23-metric"
+      }
+    },
+    {
+      "Name": "rule-24",
+      "Priority": 23,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_s2s"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_abusive_block"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Block": {
+          "CustomResponse": {
+            "ResponseCode": 200,
+            "CustomResponseBodyKey": "200_OK"
+          }
+        }
+      },
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-24-metric"
+      }
+    },
+    {
+      "Name": "rule-25",
+      "Priority": 24,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_3",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_4",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_6",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_5",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_excluded_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-25-metric"
+      }
+    },
+    {
+      "Name": "rule-26",
+      "Priority": 25,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_1",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_2",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_3",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_4",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_5",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_new_abusive_ja3"
+        },
+        {
+          "Name": "generic_old_ja3_rule"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-26-metric"
+      }
+    },
+    {
+      "Name": "rule-27",
+      "Priority": 26,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_6",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_7",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_8",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_9",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_10",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_new_abusive_ja3"
+        },
+        {
+          "Name": "generic_old_ja3_rule"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-27-metric"
+      }
+    },
+    {
+      "Name": "rule-28",
+      "Priority": 27,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_4",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_3",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_11",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_12",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "fingerprint_new_13",
+                "FieldToMatch": {
+                  "JA3Fingerprint": {
+                    "FallbackBehavior": "NO_MATCH"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "EXACTLY"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_new_abusive_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-28-metric"
+      }
+    },
+    {
+      "Name": "rule-29",
+      "Priority": 28,
+      "Statement": {
+        "ByteMatchStatement": {
+          "SearchString": "fingerprint_6",
+          "FieldToMatch": {
+            "JA3Fingerprint": {
+              "FallbackBehavior": "NO_MATCH"
+            }
+          },
+          "TextTransformations": [
+            {
+              "Priority": 0,
+              "Type": "NONE"
+            }
+          ],
+          "PositionalConstraint": "EXACTLY"
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_new_abusive_ja3"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-29-metric"
+      }
+    },
+    {
+      "Name": "rule-30",
+      "Priority": 29,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 8000,
+          "EvaluationWindowSec": 60,
+          "AggregateKeyType": "CUSTOM_KEYS",
+          "ScopeDownStatement": {
+            "LabelMatchStatement": {
+              "Scope": "LABEL",
+              "Key": "generic_trusted_partners"
+            }
+          },
+          "CustomKeys": [
+            {
+              "QueryArgument": {
+                "Name": "pid",
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            },
+            {
+              "UriPath": {
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-30-metric"
+      }
+    },
+    {
+      "Name": "rule-31",
+      "Priority": 30,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "ByteMatchStatement": {
+                "SearchString": "prefix1",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "clickid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "STARTS_WITH"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "prefix2",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "af_adset_id"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "STARTS_WITH"
+              }
+            },
+            {
+              "ByteMatchStatement": {
+                "SearchString": "prefix3",
+                "FieldToMatch": {
+                  "SingleQueryArgument": {
+                    "Name": "af_sub_siteid"
+                  }
+                },
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "NONE"
+                  }
+                ],
+                "PositionalConstraint": "STARTS_WITH"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_clickid_suspicious_prefixes"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-31-metric"
+      }
+    },
+    {
+      "Name": "rule-32",
+      "Priority": 31,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_new_abusive_ja3"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_clickid_suspicious_prefixes"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "RuleLabels": [
+        {
+          "Name": "generic_ja3_click_id_rate_label"
+        }
+      ],
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-32-metric"
+      }
+    },
+    {
+      "Name": "rule-33",
+      "Priority": 32,
+      "Statement": {
+        "AndStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_clickid_suspicious_prefixes"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_treated"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Block": {
+          "CustomResponse": {
+            "ResponseCode": 200,
+            "CustomResponseBodyKey": "200_OK",
+            "ResponseHeaders": [
+              {
+                "Name": "Accept-Ch",
+                "Value": "Sec-CH-UA-Model, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
+              }
+            ]
+          }
+        }
+      },
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-33-metric"
+      }
+    },
+    {
+      "Name": "rule-34",
+      "Priority": 33,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 11000,
+          "EvaluationWindowSec": 60,
+          "AggregateKeyType": "CUSTOM_KEYS",
+          "ScopeDownStatement": {
+            "AndStatement": {
+              "Statements": [
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_treated"
+                  }
+                },
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_ja3_click_id_rate_label"
+                  }
+                },
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_click"
+                  }
+                }
+              ]
+            }
+          },
+          "CustomKeys": [
+            {
+              "QueryArgument": {
+                "Name": "af_prt",
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            },
+            {
+              "UriPath": {
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Block": {
+          "CustomResponse": {
+            "ResponseCode": 200,
+            "CustomResponseBodyKey": "200_OK",
+            "ResponseHeaders": [
+              {
+                "Name": "Accept-Ch",
+                "Value": "Sec-CH-UA-Model, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
+              }
+            ]
+          }
+        }
+      },
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-34-metric"
+      }
+    },
+    {
+      "Name": "rule-35",
+      "Priority": 34,
+      "Statement": {
+        "RateBasedStatement": {
+          "Limit": 150000,
+          "EvaluationWindowSec": 60,
+          "AggregateKeyType": "CUSTOM_KEYS",
+          "ScopeDownStatement": {
+            "AndStatement": {
+              "Statements": [
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_ja3_click_id_rate_label"
+                  }
+                },
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_treated"
+                  }
+                },
+                {
+                  "LabelMatchStatement": {
+                    "Scope": "LABEL",
+                    "Key": "generic_impression"
+                  }
+                }
+              ]
+            }
+          },
+          "CustomKeys": [
+            {
+              "QueryArgument": {
+                "Name": "af_prt",
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            },
+            {
+              "UriPath": {
+                "TextTransformations": [
+                  {
+                    "Priority": 0,
+                    "Type": "COMPRESS_WHITE_SPACE"
+                  },
+                  {
+                    "Priority": 1,
+                    "Type": "LOWERCASE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Block": {
+          "CustomResponse": {
+            "ResponseCode": 200,
+            "CustomResponseBodyKey": "200_OK",
+            "ResponseHeaders": [
+              {
+                "Name": "Accept-Ch",
+                "Value": "Sec-CH-UA-Model, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
+              }
+            ]
+          }
+        }
+      },
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-35-metric"
+      }
+    },
+    {
+      "Name": "rule-36",
+      "Priority": 35,
+      "Statement": {
+        "OrStatement": {
+          "Statements": [
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_click"
+              }
+            },
+            {
+              "LabelMatchStatement": {
+                "Scope": "LABEL",
+                "Key": "generic_impression"
+              }
+            }
+          ]
+        }
+      },
+      "Action": {
+        "Count": {}
+      },
+      "VisibilityConfig": {
+        "SampledRequestsEnabled": true,
+        "CloudWatchMetricsEnabled": true,
+        "MetricName": "rule-36-metric"
+      }
+    }
+  ]
+}

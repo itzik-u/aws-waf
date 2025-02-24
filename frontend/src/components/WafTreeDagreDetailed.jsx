@@ -1,160 +1,192 @@
-import React, { useEffect, useState } from "react";
-import { Container, Typography, CircularProgress, Paper } from "@mui/material";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import ReactFlow, { Background, Controls } from "reactflow";
-import "reactflow/dist/style.css";
-import layoutGraph from "./layoutGraph"; // a helper using the 'dagre' library
 
-/**
- * getAction(rule):
- *   Return the action label from either rule.Action or rule.OverrideAction.
- */
+import { 
+  Container, 
+  Typography, 
+  CircularProgress, 
+  Paper, 
+  Box
+} from "@mui/material";
+
+import ReactFlow, {
+  Background,
+  Controls,
+  useNodesState,
+  useEdgesState
+} from "reactflow";
+import "reactflow/dist/style.css";
+
+import layoutGraph from "./layoutGraph";
+import { Handle, Position } from "reactflow";
+
+// ACL Node
+function AclNode({ data }) {
+  return (
+    <Paper
+      elevation={4}
+      sx={{
+        px: 2,
+        py: 1,
+        borderRadius: 2,
+        backgroundColor: "#3b82f6",
+        color: "#fff",
+        minWidth: 140,
+        textAlign: "center"
+      }}
+    >
+      <Typography variant="body2" fontWeight="bold">
+        {data.label}
+      </Typography>
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </Paper>
+  );
+}
+
+// Rule Node
+function RuleNode({ data }) {
+  const bgColor = data.isSubRule ? "#f59e0b" : "#60a5fa";
+  return (
+    <Paper
+      elevation={3}
+      sx={{
+        px: 2,
+        py: 1,
+        borderRadius: 2,
+        backgroundColor: bgColor,
+        color: "#fff",
+        minWidth: 160
+      }}
+    >
+      <Typography variant="body2" fontWeight="bold" whiteSpace="pre-line">
+        {data.label}
+      </Typography>
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </Paper>
+  );
+}
+
+// Define nodeTypes outside
+const nodeTypes = {
+  aclNode: AclNode,
+  ruleNode: RuleNode
+};
+
 function getAction(rule) {
-  if (rule.Action) {
-    return Object.keys(rule.Action)[0]; // e.g. "Block" / "Allow" / "Captcha"
-  }
-  if (rule.OverrideAction) {
-    return Object.keys(rule.OverrideAction)[0]; // e.g. "None"
-  }
+  if (rule.Action) return Object.keys(rule.Action)[0];
+  if (rule.OverrideAction) return Object.keys(rule.OverrideAction)[0];
   return "None";
 }
 
-/**
- * addSubRuleChain(ruleGroup, parentId, allNodes, allEdges):
- *   Convert the sub-rules in 'ruleGroup' into a chain of nodes:
- *     sub-rule(0) -> sub-rule(1) -> sub-rule(2)...
- *   Each sub-rule is displayed with "Rule: subRule.Name (Priority) | Action: ???"
- *   If sub-rule i matches, it short-circuits with its Action. If not matched, go to sub-rule i+1.
- */
-function addSubRuleChain(ruleGroup, parentId, allNodes, allEdges) {
-  // Sort sub-rules by priority
-  const sortedSubRules = [...(ruleGroup.Rules || [])].sort(
-    (a, b) => a.Priority - b.Priority
-  );
+function addSubRuleChain(ruleGroup, parentId, nodes, edges) {
+  const sorted = [...(ruleGroup.Rules || [])].sort((a, b) => a.Priority - b.Priority);
+  let prevNode = parentId;
 
-  let prevNodeId = parentId;
-  sortedSubRules.forEach((subRule, index) => {
-    const subRuleAction = getAction(subRule);
-    const subRuleId = `${parentId}-subrule-${index}`;
+  sorted.forEach((subRule, i) => {
+    const subAction = getAction(subRule);
+    const nodeId = `${parentId}-sub-${i}`;
+    const label = `SubRule: ${subRule.Name}\n(Priority: ${subRule.Priority}) | Action: ${subAction}`;
 
-    const labelText = `SubRule: ${subRule.Name} (Priority: ${subRule.Priority}) | Action: ${subRuleAction}`;
-    allNodes.push({
-      id: subRuleId,
-      data: { label: labelText },
-      position: { x: 0, y: 0 }, // Dagre will auto‐layout
-      style: {
-        background: "#f59e0b",
-        padding: 10,
-        borderRadius: 8,
-        color: "#fff",
-      },
-    });
-
-    allEdges.push({
-      id: `edge-${prevNodeId}-${subRuleId}`,
-      source: prevNodeId,
-      target: subRuleId,
-      animated: true,
-      label: "next",
-    });
-
-    // If subRule references another nested RuleGroup, recurse:
-    if (subRule.RuleGroup) {
-      // We'll chain from this subRule node to the sub-sub-rule chain
-      addSubRuleChain(subRule.RuleGroup, subRuleId, allNodes, allEdges);
-    }
-
-    prevNodeId = subRuleId;
-  });
-}
-
-/**
- * generateFlowDiagram(acl):
- *   Builds a DAGRE-friendly graph of the ACL’s top-level rules,
- *   then each RuleGroup as a chain of sub-rules. 
- */
-function generateFlowDiagram(acl) {
-  const nodes = [];
-  const edges = [];
-
-  const aclNodeId = `acl-${acl.Id}`;
-  const defaultAction = Object.keys(acl.DefaultAction || { None: {} })[0];
-
-  // Root ACL node
-  nodes.push({
-    id: aclNodeId,
-    data: {
-      label: `ACL: ${acl.Name} | DefaultAction: ${defaultAction}`,
-    },
-    position: { x: 0, y: 0 },
-    style: {
-      background: "#3b82f6",
-      padding: 10,
-      borderRadius: 8,
-      color: "#fff",
-    },
-  });
-
-  // Sort top-level rules by Priority
-  const sortedRules = [...(acl.Rules || [])].sort((a, b) => a.Priority - b.Priority);
-
-  let prevTopLevelId = aclNodeId;
-  sortedRules.forEach((rule, index) => {
-    const ruleId = `rule-${acl.Id}-${index}`;
-    const ruleAction = getAction(rule);
-
-    // Node for the top-level rule
     nodes.push({
-      id: ruleId,
+      id: nodeId,
+      type: "ruleNode",
       data: {
-        label: `Rule: ${rule.Name} (Priority: ${rule.Priority}) | Action: ${ruleAction}`,
+        label,
+        isSubRule: true,
+        fullRule: subRule
       },
-      position: { x: 0, y: 0 },
-      style: {
-        background: "#60a5fa",
-        padding: 10,
-        borderRadius: 8,
-      },
+      position: { x: 0, y: 0 }
     });
 
     edges.push({
-      id: `edge-${prevTopLevelId}-${ruleId}`,
-      source: prevTopLevelId,
-      target: ruleId,
-      animated: true,
+      id: `edge-${prevNode}-to-${nodeId}`,
+      source: prevNode,
+      target: nodeId,
       label: "next",
+      animated: true
     });
 
-    // If there is a sub-rule group, we create a chain for them:
-    if (rule.RuleGroup) {
-      addSubRuleChain(rule.RuleGroup, ruleId, nodes, edges);
+    if (subRule.RuleGroup) {
+      addSubRuleChain(subRule.RuleGroup, nodeId, nodes, edges);
     }
 
-    prevTopLevelId = ruleId;
+    prevNode = nodeId;
+  });
+}
+
+function generateFlow(acl) {
+  const nodes = [];
+  const edges = [];
+
+  const defaultAction = Object.keys(acl.DefaultAction || { None: {} })[0] || "None";
+  const aclId = `acl-${acl.Id}`;
+
+  // ACL node
+  nodes.push({
+    id: aclId,
+    type: "aclNode",
+    data: {
+      label: `ACL: ${acl.Name} | DefaultAction: ${defaultAction}`,
+      fullAcl: acl
+    },
+    position: { x: 0, y: 0 }
   });
 
-  // Finally, a node for the ACL’s default action (only if you want it in the chain):
-  const defaultNodeId = `acl-${acl.Id}-defaultAction`;
+  // top-level rules
+  const sortedRules = [...(acl.Rules || [])].sort((a, b) => a.Priority - b.Priority);
+  let prevNode = aclId;
+  sortedRules.forEach((rule, idx) => {
+    const ruleAction = getAction(rule);
+    const rNodeId = `rule-${acl.Id}-${idx}`;
+    const label = `Rule: ${rule.Name} (Priority: ${rule.Priority}) | Action: ${ruleAction}`;
+
+    nodes.push({
+      id: rNodeId,
+      type: "ruleNode",
+      data: {
+        label,
+        isSubRule: false,
+        fullRule: rule
+      },
+      position: { x: 0, y: 0 }
+    });
+
+    edges.push({
+      id: `edge-${prevNode}-to-${rNodeId}`,
+      source: prevNode,
+      target: rNodeId,
+      label: "next",
+      animated: true
+    });
+
+    if (rule.RuleGroup) {
+      addSubRuleChain(rule.RuleGroup, rNodeId, nodes, edges);
+    }
+    prevNode = rNodeId;
+  });
+
+  // final default node
+  const defId = `acl-${acl.Id}-default`;
   nodes.push({
-    id: defaultNodeId,
-    data: { label: `DefaultAction => ${defaultAction}` },
-    position: { x: 0, y: 0 },
-    style: {
-      background: "#10b981",
-      padding: 10,
-      borderRadius: 8,
-      color: "#fff",
+    id: defId,
+    type: "ruleNode",
+    data: {
+      label: `DefaultAction => ${defaultAction}`,
+      isSubRule: false
     },
+    position: { x: 0, y: 0 }
   });
   edges.push({
-    id: `edge-default-${prevTopLevelId}-${defaultNodeId}`,
-    source: prevTopLevelId,
-    target: defaultNodeId,
-    animated: true,
+    id: `edge-${prevNode}-to-${defId}`,
+    source: prevNode,
+    target: defId,
     label: "if no match",
+    animated: true
   });
 
-  // Run the Dagre auto‐layout to position everything
+  // auto layout
   const { nodes: laidOutNodes, edges: laidOutEdges } = layoutGraph(nodes, edges, "TB");
   return { nodes: laidOutNodes, edges: laidOutEdges };
 }
@@ -162,6 +194,13 @@ function generateFlowDiagram(acl) {
 export default function WafTreeDagreDetailed() {
   const [acls, setAcls] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // For “hover box” or “click detail” 
+  const [anchorPos, setAnchorPos] = useState(null);
+  const [selectedData, setSelectedData] = useState(null);
 
   useEffect(() => {
     axios
@@ -171,27 +210,99 @@ export default function WafTreeDagreDetailed() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (acls.length > 0) {
+      const { nodes, edges } = generateFlow(acls[0]);
+      setNodes(nodes);
+      setEdges(edges);
+    }
+  }, [acls]);
+
+  const onNodeClick = useCallback((evt, node) => {
+    setAnchorPos({ mouseX: evt.clientX, mouseY: evt.clientY });
+    const r = node.data?.fullRule;
+    const a = node.data?.fullAcl;
+    if (r) {
+      setSelectedData({
+        type: "rule",
+        name: r.Name,
+        priority: r.Priority,
+        action: getAction(r)
+      });
+    } else if (a) {
+      setSelectedData({
+        type: "acl",
+        name: a.Name,
+        id: a.Id
+      });
+    } else {
+      setSelectedData({ type: "default" });
+    }
+  }, []);
+
+  const closePopover = () => {
+    setAnchorPos(null);
+    setSelectedData(null);
+  };
+
   if (loading) return <CircularProgress />;
   if (!acls.length) return <Typography>No ACLs found</Typography>;
 
   return (
-    <Container style={{ marginTop: 30 }}>
+    <Container sx={{ mt: 4 }}>
       <Typography variant="h4" align="center" gutterBottom>
         AWS WAF DAGRE Flow (Detailed Sub‐Rule Chains)
       </Typography>
 
-      {acls.map((acl, idx) => {
-        const { nodes, edges } = generateFlowDiagram(acl);
-        return (
-          <Paper key={acl.Id || idx} style={{ height: 700, marginTop: 30, padding: 10 }}>
-            <Typography variant="h6">{acl.Name} - Detailed Flow</Typography>
-            <ReactFlow nodes={nodes} edges={edges} fitView>
-              <Background />
-              <Controls />
-            </ReactFlow>
-          </Paper>
-        );
-      })}
+      <Paper sx={{ width: "100%", height: "80vh" }} elevation={3}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick}
+          nodeTypes={nodeTypes}
+          fitView
+        >
+          <Background />
+          <Controls />
+        </ReactFlow>
+      </Paper>
+
+      {/* Simple “popover” when you click a node */}
+      {anchorPos && (
+        <Box
+          sx={{
+            position: "fixed",
+            top: anchorPos.mouseY,
+            left: anchorPos.mouseX,
+            bgcolor: "#fff",
+            border: "1px solid #ccc",
+            p: 2,
+            borderRadius: 1
+          }}
+          onMouseLeave={closePopover}
+        >
+          {selectedData?.type === "acl" && (
+            <>
+              <Typography variant="subtitle1">
+                ACL: {selectedData.name}
+              </Typography>
+              <Typography>ID: {selectedData.id}</Typography>
+            </>
+          )}
+          {selectedData?.type === "rule" && (
+            <>
+              <Typography variant="subtitle1">Rule: {selectedData.name}</Typography>
+              <Typography>Priority: {selectedData.priority}</Typography>
+              <Typography>Action: {selectedData.action}</Typography>
+            </>
+          )}
+          {selectedData?.type === "default" && (
+            <Typography>DefaultAction node (no extra info)</Typography>
+          )}
+        </Box>
+      )}
     </Container>
   );
 }
