@@ -23,7 +23,6 @@ export default function layoutGraph(nodes, edges, direction = "TB") {
 
   // Add edges
   edges.forEach((edge) => {
-    // If the edge doesn’t have a stable ID, or might be duplicated, we can store a random suffix:
     if (!edge.id) {
       edge.id = `edge-${edge.source}-${edge.target}-${Math.random()}`;
     }

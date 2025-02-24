@@ -6,54 +6,44 @@ import wafRules from '../data/appsflyerRules.json';
 
 /**
  * Recursively find all label keys from nested WAF statements.
- * Handles AndStatement, OrStatement, NotStatement, RateBasedStatement.ScopeDownStatement,
- * plus direct LabelMatchStatement at any level.
  */
 function extractAllLabelKeys(statement) {
-    if (!statement) return [];
-    let results = [];
-  
-    if (statement.LabelMatchStatement && statement.LabelMatchStatement.Key) {
-      console.log('Found LabelMatchStatement:', statement.LabelMatchStatement.Key);
-      results.push(statement.LabelMatchStatement.Key);
-    }
-  
-    if (statement.AndStatement && Array.isArray(statement.AndStatement.Statements)) {
-      statement.AndStatement.Statements.forEach(st => {
-        results = results.concat(extractAllLabelKeys(st));
-      });
-    }
-  
-    if (statement.OrStatement && Array.isArray(statement.OrStatement.Statements)) {
-      statement.OrStatement.Statements.forEach(st => {
-        results = results.concat(extractAllLabelKeys(st));
-      });
-    }
-  
-    if (statement.NotStatement && statement.NotStatement.Statement) {
-      results = results.concat(extractAllLabelKeys(statement.NotStatement.Statement));
-    }
-  
-    if (statement.RateBasedStatement && statement.RateBasedStatement.ScopeDownStatement) {
-      console.log('Diving into RateBasedStatement.ScopeDownStatement...');
-      results = results.concat(
-        extractAllLabelKeys(statement.RateBasedStatement.ScopeDownStatement)
-      );
-    }
-  
-    return results;
+  if (!statement) return [];
+  let results = [];
+
+  if (statement.LabelMatchStatement && statement.LabelMatchStatement.Key) {
+    results.push(statement.LabelMatchStatement.Key);
+  }
+  if (statement.AndStatement && Array.isArray(statement.AndStatement.Statements)) {
+    statement.AndStatement.Statements.forEach(st => {
+      results = results.concat(extractAllLabelKeys(st));
+    });
+  }
+  if (statement.OrStatement && Array.isArray(statement.OrStatement.Statements)) {
+    statement.OrStatement.Statements.forEach(st => {
+      results = results.concat(extractAllLabelKeys(st));
+    });
+  }
+  if (statement.NotStatement && statement.NotStatement.Statement) {
+    results = results.concat(extractAllLabelKeys(statement.NotStatement.Statement));
+  }
+  if (statement.RateBasedStatement && statement.RateBasedStatement.ScopeDownStatement) {
+    results = results.concat(
+      extractAllLabelKeys(statement.RateBasedStatement.ScopeDownStatement)
+    );
   }
 
-const WAFRulesTree = () => {
+  return results;
+}
+
+export default function WafRulesFlow() {
   const svgRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  // For "Track Path" step-by-step
-  const [revealedNodes, setRevealedNodes] = useState(new Set());
 
   useEffect(() => {
     const data = wafRules.rules || [];
 
-    // 1) Build basic node array
+    // Build basic nodes
     const nodes = data.map((rule, idx) => {
       let action = 'None';
       if (rule.Action) {
@@ -78,7 +68,7 @@ const WAFRulesTree = () => {
     const nodeById = new Map(nodes.map(n => [n.id, n]));
     const links = [];
 
-    // 2) For each rule, recursively extract all needed labels
+    // Extract needed labels
     for (let i = 0; i < data.length; i++) {
       const rule = data[i];
       const node = nodes[i];
@@ -95,16 +85,14 @@ const WAFRulesTree = () => {
       });
     }
 
-    // 3) Topological layering (DAG)
+    // Topological layering
     const unassigned = new Set(nodes.map(n => n.id));
     const layers = [];
     let currentLayer = [];
 
-    // Start with zero-incoming-edge nodes
+    // Start with zero-incoming-edge
     nodes.forEach(n => {
-      if (n.incomingEdges === 0) {
-        currentLayer.push(n.id);
-      }
+      if (n.incomingEdges === 0) currentLayer.push(n.id);
     });
 
     while (currentLayer.length > 0) {
@@ -112,7 +100,6 @@ const WAFRulesTree = () => {
       const nextLayer = [];
       currentLayer.forEach(nid => {
         unassigned.delete(nid);
-        // Decrement incomingEdges for children
         links.forEach(l => {
           if (l.source === nid) {
             const child = nodeById.get(l.target);
@@ -126,17 +113,16 @@ const WAFRulesTree = () => {
       currentLayer = nextLayer;
     }
 
-    // If something remains, it might be a cycle or leftover
     if (unassigned.size > 0) {
       layers.push([...unassigned]);
     }
 
-    // (Optional) Sort each layer by priority
+    // Sort each layer by priority
     layers.forEach(layerArr => {
       layerArr.sort((a, b) => nodeById.get(a).priority - nodeById.get(b).priority);
     });
 
-    // 4) Assign x,y based on layers
+    // Assign x,y
     const layerSpacing = 300;
     const nodeSpacing = 120;
     const positions = {};
@@ -151,8 +137,8 @@ const WAFRulesTree = () => {
       });
     });
 
-    // 5) Draw the graph
-    const width = 1500;
+    // Draw
+    const width = 1600;
     const height = 1000;
     d3.select(svgRef.current).selectAll('*').remove();
 
@@ -181,7 +167,7 @@ const WAFRulesTree = () => {
       .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', '#999');
 
-    // Draw links
+    // Links
     const linkSelection = g.selectAll('line.link')
       .data(links)
       .enter()
@@ -197,19 +183,12 @@ const WAFRulesTree = () => {
 
     // Node color
     const getNodeColor = (d) => {
-      if (d.action === 'Block') return '#FF6B6B';   // red
-      if (d.action === 'Count') return '#4CAF50';  // green
-      if (d.dependsOn.length > 0) return '#FFA500'; // orange if it depends on another rule
-      return '#2196F3';                             // blue otherwise
+      if (d.action === 'Block') return '#FF6B6B';
+      if (d.action === 'Count') return '#4CAF50';
+      if (d.dependsOn.length > 0) return '#FFA500';
+      return '#2196F3';
     };
 
-    // Distinguish if it's truly independent or collector
-    const isIndependent = (d) =>
-      d.dependsOn.length === 0 && d.generatedLabels.length === 0;
-    const isCollector = (d) =>
-      d.dependsOn.length > 0 && d.generatedLabels.length === 0;
-
-    // Draw nodes
     const nodeSelection = g.selectAll('g.node')
       .data(nodes)
       .enter()
@@ -233,15 +212,9 @@ const WAFRulesTree = () => {
       .attr('rx', 10)
       .attr('ry', 10)
       .attr('fill', getNodeColor)
-      .attr('stroke', d => {
-        if (isIndependent(d)) return '#ccc';
-        if (isCollector(d)) return '#fff';
-        return '#fff';
-      })
-      .attr('stroke-width', d => (isCollector(d) ? 4 : 2))
-      .style('stroke-dasharray', d => (isIndependent(d) ? '6,3' : 'none'));
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2);
 
-    // Show details in text
     nodeSelection.append('text')
       .attr('x', -100)
       .attr('y', -20)
@@ -279,21 +252,16 @@ const WAFRulesTree = () => {
       .attr('y', 60)
       .attr('fill', 'white')
       .style('font-size', '12px')
-      .text(d => d.dependsOn.length > 0
-        ? `Depends On: ${d.dependsOn.join(', ')}`
-        : ''
+      .text(d =>
+        d.dependsOn.length > 0
+          ? `Depends On: ${d.dependsOn.join(', ')}`
+          : ''
       );
 
-    // Highlight logic
     function resetHighlights() {
       nodeSelection.select('rect')
-        .attr('stroke', d => {
-          if (isIndependent(d)) return '#ccc';
-          if (isCollector(d)) return '#fff';
-          return '#fff';
-        })
-        .attr('stroke-width', d => (isCollector(d) ? 4 : 2))
-        .style('stroke-dasharray', d => (isIndependent(d) ? '6,3' : 'none'));
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2);
 
       linkSelection
         .attr('stroke', '#999')
@@ -307,26 +275,20 @@ const WAFRulesTree = () => {
       nodeSelection.filter(d => d.id === node.id)
         .select('rect')
         .attr('stroke', '#FFD700')
-        .attr('stroke-width', 4)
-        .style('stroke-dasharray', 'none');
+        .attr('stroke-width', 4);
 
       // find direct neighbors
       const neighbors = new Set();
       links.forEach(l => {
-        if (l.source === node.id) {
-          neighbors.add(l.target);
-        }
-        if (l.target === node.id) {
-          neighbors.add(l.source);
-        }
+        if (l.source === node.id) neighbors.add(l.target);
+        if (l.target === node.id) neighbors.add(l.source);
       });
 
       // highlight neighbors
       nodeSelection.filter(d => neighbors.has(d.id))
         .select('rect')
         .attr('stroke', '#FFD700')
-        .attr('stroke-width', 4)
-        .style('stroke-dasharray', 'none');
+        .attr('stroke-width', 4);
 
       // highlight connecting links
       linkSelection.filter(l =>
@@ -335,103 +297,9 @@ const WAFRulesTree = () => {
       .attr('stroke', '#FFD700')
       .attr('stroke-width', 4);
     }
+  }, []);
 
-    function showFullPath(node) {
-      resetHighlights();
-
-      // BFS in both directions
-      const visited = new Set();
-      const queue = [node.id];
-
-      while (queue.length > 0) {
-        const current = queue.shift();
-        if (!visited.has(current)) {
-          visited.add(current);
-          links.forEach(l => {
-            if (l.source === current && !visited.has(l.target)) {
-              queue.push(l.target);
-            }
-            if (l.target === current && !visited.has(l.source)) {
-              queue.push(l.source);
-            }
-          });
-        }
-      }
-
-      nodeSelection.filter(d => visited.has(d.id))
-        .select('rect')
-        .attr('stroke', '#00FFFF')
-        .attr('stroke-width', 4)
-        .style('stroke-dasharray', 'none');
-
-      linkSelection.filter(l =>
-        visited.has(l.source) && visited.has(l.target)
-      )
-      .attr('stroke', '#00FFFF')
-      .attr('stroke-width', 4);
-    }
-
-    // Step-by-step "Track Path" (forward direction)
-    function revealNextLayer() {
-      if (!selectedNode) return;
-
-      // if none revealed yet, reveal the selected node
-      if (revealedNodes.size === 0) {
-        const newSet = new Set([selectedNode.id]);
-        setRevealedNodes(newSet);
-        resetHighlights();
-        highlightRevealed(newSet);
-        return;
-      }
-
-      // otherwise, reveal children of the currently revealed set
-      const toReveal = new Set();
-      links.forEach(l => {
-        if (revealedNodes.has(l.source) && !revealedNodes.has(l.target)) {
-          toReveal.add(l.target);
-        }
-      });
-
-      if (toReveal.size === 0) return; // no more to reveal
-
-      const updated = new Set([...revealedNodes, ...toReveal]);
-      setRevealedNodes(updated);
-      resetHighlights();
-      highlightRevealed(updated);
-    }
-
-    function highlightRevealed(idSet) {
-      nodeSelection.filter(d => idSet.has(d.id))
-        .select('rect')
-        .attr('stroke', '#00FFFF')
-        .attr('stroke-width', 4)
-        .style('stroke-dasharray', 'none');
-
-      linkSelection.filter(l =>
-        idSet.has(l.source) && idSet.has(l.target)
-      )
-      .attr('stroke', '#00FFFF')
-      .attr('stroke-width', 4);
-    }
-
-    // Expose these for buttons
-    window._resetHighlights = () => {
-      resetHighlights();
-      setSelectedNode(null);
-      setRevealedNodes(new Set());
-    };
-    window._showFullPath = () => {
-      if (selectedNode) {
-        showFullPath(selectedNode);
-      }
-    };
-    window._trackPathStep = () => {
-      revealNextLayer();
-    };
-
-  }, [selectedNode, revealedNodes]);
-
-  // Export to PNG
+  // Export as PNG
   const exportAsPNG = async () => {
     if (!svgRef.current) return;
     const svgElement = svgRef.current;
@@ -458,7 +326,7 @@ const WAFRulesTree = () => {
         .then(canvas => {
           const imgURI = canvas.toDataURL('image/png');
           const link = document.createElement('a');
-          link.download = 'waf_rules_tree.png';
+          link.download = 'waf_rules_flow.png';
           link.href = imgURI;
           document.body.appendChild(link);
           link.click();
@@ -469,7 +337,7 @@ const WAFRulesTree = () => {
     };
   };
 
-  // Export to PDF
+  // Export as PDF
   const exportAsPDF = async () => {
     if (!svgRef.current) return;
     const svgElement = svgRef.current;
@@ -489,33 +357,18 @@ const WAFRulesTree = () => {
       format: [rect.width, rect.height]
     });
     pdf.addImage(imgData, 'PNG', 0, 0, rect.width, rect.height);
-    pdf.save('waf_rules_tree.pdf');
+    pdf.save('waf_rules_flow.pdf');
   };
 
   return (
-    <div>
-      <h2>AWS WAF Full Project</h2>
-      <h3>AWS WAF Rules Visual Tree</h3>
+    <div style={{ padding: '20px' }}>
+      <h2>AWS WAF Flow</h2>
+      <h3>Layered DAG + Basic Topological Layout</h3>
       <div style={{ marginBottom: '10px' }}>
-        <button onClick={() => window._resetHighlights()}>
-          Reset Highlights
-        </button>
-        <button onClick={() => window._trackPathStep()}>
-          Track Path (Step)
-        </button>
-        <button onClick={() => window._showFullPath()}>
-          Show Full Path
-        </button>
-        <button onClick={exportAsPNG}>
-          Export as PNG
-        </button>
-        <button onClick={exportAsPDF}>
-          Export as PDF
-        </button>
+        <button onClick={exportAsPNG}>Export as PNG</button>
+        <button onClick={exportAsPDF}>Export as PDF</button>
       </div>
       <svg ref={svgRef}></svg>
     </div>
   );
-};
-
-export default WAFRulesTree;
+}

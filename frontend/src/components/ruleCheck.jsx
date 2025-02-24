@@ -4,10 +4,14 @@ import Elk from 'elkjs/lib/elk.bundled.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
+// --- MUI imports for layout & styling ---
+import { Box, Stack, Typography, Button } from '@mui/material';
+
 import appsflyerRules from '../data/appsflyerRules.json';
 
 /**
  * Recursively extracts label keys from nested statements
+ * (AndStatement, OrStatement, NotStatement, RateBasedStatement, etc.).
  */
 function extractAllLabelKeys(statement) {
   if (!statement) return [];
@@ -39,7 +43,7 @@ function extractAllLabelKeys(statement) {
 }
 
 /**
- * Layout with ELK (top-down, polylines).
+ * Use ELK to compute a top-to-bottom layered layout with polyline edges.
  */
 async function layoutWithElk(nodes, links) {
   const elk = new Elk();
@@ -68,7 +72,7 @@ async function layoutWithElk(nodes, links) {
     return await elk.layout(graph);
   } catch (err) {
     console.error('ELK error:', err);
-    // fallback layout in a grid
+    // fallback layout
     return {
       children: nodes.map((n, i) => ({
         id: n.id,
@@ -81,19 +85,18 @@ async function layoutWithElk(nodes, links) {
   }
 }
 
-const ElkAppsflyerRulesTree = () => {
+const WAFRuleTree = () => {
   const svgRef = useRef(null);
 
-  // Side panel node
+  // Node panel + theme toggle
   const [selectedNode, setSelectedNode] = useState(null);
-  // Dark theme toggle
   const [darkTheme, setDarkTheme] = useState(false);
 
   useEffect(() => {
     const data = appsflyerRules.LibRules || [];
     console.log('Loaded appsflyer rules:', data);
 
-    // Build nodes
+    // 1) Build nodes
     const nodes = data.map((rule, idx) => {
       let action = 'None';
       if (rule.Action) {
@@ -119,7 +122,7 @@ const ElkAppsflyerRulesTree = () => {
       };
     });
 
-    // Build links
+    // 2) Build links by matching label references
     const links = [];
     nodes.forEach(node => {
       const neededLabels = extractAllLabelKeys(node.rawRule.Statement);
@@ -133,13 +136,12 @@ const ElkAppsflyerRulesTree = () => {
       });
     });
 
-    // Measure node sizes
+    // 3) Measure each node's text to set width/height
     measureNodes(nodes);
 
-    // Layout with ELK
+    // 4) ELK layout
     (async () => {
       const layoutGraph = await layoutWithElk(nodes, links);
-
       layoutGraph.children?.forEach(child => {
         const nd = nodes.find(n => n.id === child.id);
         if (nd && child.x != null && child.y != null) {
@@ -147,7 +149,6 @@ const ElkAppsflyerRulesTree = () => {
           nd.y = child.y;
         }
       });
-
       layoutGraph.edges?.forEach((e, i) => {
         const link = links[i];
         link.points = [];
@@ -166,9 +167,7 @@ const ElkAppsflyerRulesTree = () => {
     // eslint-disable-next-line
   }, [darkTheme]);
 
-  /**
-   * measureNodes: create a hidden <svg>, measure the lines for each node, store width/height.
-   */
+  // measure each node
   function measureNodes(nodes) {
     const measureSvg = d3.select('body')
       .append('svg')
@@ -179,7 +178,6 @@ const ElkAppsflyerRulesTree = () => {
 
     nodes.forEach(node => {
       const group = measureSvg.append('g');
-
       let lines = [];
       lines.push(`Name: ${node.name}`);
       lines.push(`Priority: ${node.priority}`);
@@ -214,7 +212,7 @@ const ElkAppsflyerRulesTree = () => {
   }
 
   function drawGraph(nodes, links) {
-    const width = 2500;
+    const width = 1200;
     const height = 1200;
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -229,7 +227,7 @@ const ElkAppsflyerRulesTree = () => {
 
     const gContainer = svg.append('g');
 
-    // Edges behind, nodes on top
+    // edges behind, nodes on top
     const edgesLayer = gContainer.append('g').attr('class', 'edges-layer');
     const nodesLayer = gContainer.append('g').attr('class', 'nodes-layer');
 
@@ -243,7 +241,7 @@ const ElkAppsflyerRulesTree = () => {
       .attr('orient', 'auto')
       .append('path')
       .attr('d', 'M0,-5L10,0L0,5')
-      .attr('fill', darkTheme ? '#bbb' : '#999'); // a bit lighter in dark theme
+      .attr('fill', darkTheme ? '#bbb' : '#999');
 
     const linkSel = edgesLayer.selectAll('path.link')
       .data(links)
@@ -256,6 +254,7 @@ const ElkAppsflyerRulesTree = () => {
       .attr('marker-end', 'url(#arrowhead)')
       .attr('d', d => {
         if (!d.points) {
+          // fallback
           const sx = nodes.find(n => n.id === d.source)?.x || 0;
           const sy = nodes.find(n => n.id === d.source)?.y || 0;
           const tx = nodes.find(n => n.id === d.target)?.x || 0;
@@ -269,23 +268,25 @@ const ElkAppsflyerRulesTree = () => {
         return lineGen(d.points);
       });
 
-    // Node color logic: "very formal"
+    // Node color logic
     function getNodeColor(d) {
-      // We'll use darker, more muted colors for a formal look
-      if (d.action === 'Block') return '#8B0000';   // Dark Red
-      if (d.action === 'Count') return '#006400';   // Dark Green
-      if (d.dependsOn.length > 0) return '#8B7500'; // Dark Goldenrod
-      return '#2F4F4F';                              // Dark Slate Gray
+      // "formal" palette
+      if (d.action === 'Block') return '#8B0000';   // dark red
+      if (d.action === 'Count') return '#006400';   // dark green
+      if (d.dependsOn.length > 0) return '#8B7500'; // dark goldenrod
+      return '#2F4F4F';                              // dark slate gray
     }
 
     function highlightParentsAndChildren(node) {
       nodeSel.select('rect')
         .attr('stroke', darkTheme ? '#eee' : '#fff')
         .attr('stroke-width', 2);
+
       linkSel
         .attr('stroke', darkTheme ? '#bbb' : '#999')
         .attr('stroke-width', 2);
 
+      // highlight the clicked node
       nodeSel.filter(d => d.id === node.id)
         .select('rect')
         .attr('stroke', '#FFD700')
@@ -293,14 +294,9 @@ const ElkAppsflyerRulesTree = () => {
 
       const parents = new Set();
       const children = new Set();
-
       links.forEach(l => {
-        if (l.target === node.id) {
-          parents.add(l.source);
-        }
-        if (l.source === node.id) {
-          children.add(l.target);
-        }
+        if (l.target === node.id) parents.add(l.source);
+        if (l.source === node.id) children.add(l.target);
       });
 
       nodeSel.filter(d => parents.has(d.id) || children.has(d.id))
@@ -321,24 +317,23 @@ const ElkAppsflyerRulesTree = () => {
       .enter()
       .append('g')
       .attr('class', 'node')
+      .attr('transform', d => `translate(${d.x}, ${d.y})`)
       .on('click', (event, d) => {
         event.stopPropagation();
         highlightParentsAndChildren(d);
         setSelectedNode(d);
-      })
-      .attr('transform', d => `translate(${d.x}, ${d.y})`);
+      });
 
     nodeSel.append('rect')
       .attr('width', d => d.width)
       .attr('height', d => d.height)
-      .attr('x', 0)
-      .attr('y', 0)
-      .attr('rx', 10)
-      .attr('ry', 10)
       .attr('fill', getNodeColor)
       .attr('stroke', darkTheme ? '#eee' : '#fff')
-      .attr('stroke-width', 2);
+      .attr('stroke-width', 2)
+      .attr('rx', 10)
+      .attr('ry', 10);
 
+    // Add text lines
     nodeSel.each(function(d) {
       const group = d3.select(this);
       let lines = [];
@@ -358,39 +353,36 @@ const ElkAppsflyerRulesTree = () => {
         group.append('text')
           .attr('x', marginX)
           .attr('y', nextY)
-          .attr('fill', '#ffffff') // text is always white for contrast
+          .attr('fill', '#fff')
           .style('font-size', '12px')
           .text(textLine);
         nextY += 16;
       });
     });
 
-    // auto-zoom to fit
+    // Auto-zoom
     setTimeout(() => {
       const bounds = gContainer.node().getBBox();
       const fullWidth = bounds.width;
       const fullHeight = bounds.height;
       const midX = bounds.x + fullWidth / 2;
       const midY = bounds.y + fullHeight / 2;
-
+    
       const scale = Math.min(
         width / (fullWidth * 1.2),
         height / (fullHeight * 1.2),
         2
       );
-
       const translate = [
         width / 2 - scale * midX,
-        height / 2 - scale * midY
+        height /3 - scale * midY
       ];
 
-      d3.select(svgRef.current).transition()
+      svg.transition()
         .duration(750)
         .call(
           zoomBehavior.transform,
-          d3.zoomIdentity
-            .translate(translate[0], translate[1])
-            .scale(scale)
+          d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
         );
     }, 0);
   }
@@ -400,6 +392,7 @@ const ElkAppsflyerRulesTree = () => {
     setDarkTheme(!darkTheme);
   }
 
+  // Close panel
   function closePanel() {
     setSelectedNode(null);
   }
@@ -464,115 +457,84 @@ const ElkAppsflyerRulesTree = () => {
     pdf.save('appsflyer_rules_tree_elk.pdf');
   };
 
-  // Container style
-  const containerStyle = {
-    position: 'relative',
-    minHeight: '100vh',
-    backgroundColor: darkTheme ? '#121212' : '#ffffff',
-    color: darkTheme ? '#eeeeee' : '#000000',
-    transition: 'background-color 0.3s ease, color 0.3s ease',
-    paddingBottom: '50px'
-  };
-
-  // Button styles
-  const buttonContainerStyle = {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '10px',
-  };
-
-  const buttonStyle = {
-    backgroundColor: darkTheme ? '#444444' : '#1976d2',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '8px 16px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'background-color 0.3s ease',
-  };
-
-  const handleMouseEnter = (e) => {
-    e.target.style.backgroundColor = darkTheme ? '#555555' : '#1565c0';
-  };
-
-  const handleMouseLeave = (e) => {
-    e.target.style.backgroundColor = darkTheme ? '#444444' : '#1976d2';
-  };
-
-  // Panel
-  const panelStyle = {
-    position: 'absolute',
-    right: '20px',
-    top: '120px',
-    width: '400px',
-    maxHeight: '70vh',
-    overflowY: 'auto',
-    backgroundColor: darkTheme ? '#333' : '#f9f9f9',
-    color: darkTheme ? '#eee' : '#000',
-    border: '1px solid #ccc',
-    borderRadius: '8px',
-    padding: '16px',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
-    zIndex: 999
-  };
-
-  const closeButtonStyle = {
-    backgroundColor: 'transparent',
-    border: 'none',
-    fontSize: '16px',
-    cursor: 'pointer',
-    float: 'right',
-    color: darkTheme ? '#ffffff' : '#000000'
-  };
-
   return (
-    <div style={containerStyle}>
-      <h2>Appsflyer Full Project (ELK Layout)</h2>
-      <h3>Auto-Sized Nodes + Formal Colors + Dark Theme Toggle</h3>
+    <Box
+      sx={{
+        position: 'relative',
+        minHeight: '100vh',
+        backgroundColor: darkTheme ? '#121212' : '#ffffff',
+        color: darkTheme ? '#eeeeee' : '#000000',
+        transition: 'background-color 0.3s ease, color 0.3s ease',
+        pb: 4,
+        px: 2,
+        pt: 2
+      }}
+    >
+      <Typography variant="h5" gutterBottom>
+        Appsflyer Full Project (ELK Layout)
+      </Typography>
+      <Typography variant="subtitle1" gutterBottom sx={{ mb: 2 }}>
+        Dark Theme Toggle + Exports
+      </Typography>
 
-      <div style={buttonContainerStyle}>
-        <button
-          style={buttonStyle}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onClick={toggleTheme}
-        >
+      {/* Button bar, centered */}
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }} justifyContent="center">
+        <Button variant="contained" onClick={toggleTheme}>
           {darkTheme ? 'Light Theme' : 'Dark Theme'}
-        </button>
-
-        <button
-          style={buttonStyle}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onClick={exportAsPNG}
-        >
+        </Button>
+        <Button variant="outlined" onClick={exportAsPNG}>
           Export as PNG
-        </button>
-
-        <button
-          style={buttonStyle}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onClick={exportAsPDF}
-        >
+        </Button>
+        <Button variant="outlined" onClick={exportAsPDF}>
           Export as PDF
-        </button>
-      </div>
+        </Button>
+      </Stack>
 
+      {/* Side panel for details */}
       {selectedNode && (
-        <div style={panelStyle}>
-          <button style={closeButtonStyle} onClick={closePanel}>X</button>
-          <h3>Rule Full Details</h3>
-          <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            right: '10px',
+            top: '120px',
+            width: '300px',
+            maxHeight: '70vh',
+            overflowY: 'auto',
+            backgroundColor: darkTheme ? '#333' : '#f9f9f9',
+            color: darkTheme ? '#eee' : '#000',
+            border: '1px solid #ccc',
+            borderRadius: 2,
+            p: 2,
+            boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+            zIndex: 999
+          }}
+        >
+          <Button
+            onClick={closePanel}
+            sx={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              fontSize: '16px',
+              cursor: 'pointer',
+              float: 'right',
+              color: darkTheme ? '#fff' : '#000'
+            }}
+          >
+            X
+          </Button>
+          <Typography variant="h6" gutterBottom>
+            Rule Full Details
+          </Typography>
+          <Box component="pre" sx={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
             {JSON.stringify(selectedNode.rawRule, null, 2)}
-          </pre>
-        </div>
+          </Box>
+        </Box>
       )}
 
-      <svg ref={svgRef}></svg>
-    </div>
+      {/* The SVG for D3 rendering */}
+      <svg ref={svgRef} />
+    </Box>
   );
 };
 
-export default ElkAppsflyerRulesTree;
+export default WAFRuleTree;

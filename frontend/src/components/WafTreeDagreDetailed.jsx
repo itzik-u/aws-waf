@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-
-import { 
-  Container, 
-  Typography, 
-  CircularProgress, 
-  Paper, 
+import {
+  Container,
+  Typography,
+  CircularProgress,
+  Paper,
   Box
 } from "@mui/material";
-
 import ReactFlow, {
   Background,
   Controls,
@@ -68,7 +66,7 @@ function RuleNode({ data }) {
   );
 }
 
-// Define nodeTypes outside
+// Define nodeTypes
 const nodeTypes = {
   aclNode: AclNode,
   ruleNode: RuleNode
@@ -198,7 +196,6 @@ export default function WafTreeDagreDetailed() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // For “hover box” or “click detail” 
   const [anchorPos, setAnchorPos] = useState(null);
   const [selectedData, setSelectedData] = useState(null);
 
@@ -269,7 +266,7 @@ export default function WafTreeDagreDetailed() {
         </ReactFlow>
       </Paper>
 
-      {/* Simple “popover” when you click a node */}
+      {/* Simple popover on node click */}
       {anchorPos && (
         <Box
           sx={{
@@ -293,7 +290,9 @@ export default function WafTreeDagreDetailed() {
           )}
           {selectedData?.type === "rule" && (
             <>
-              <Typography variant="subtitle1">Rule: {selectedData.name}</Typography>
+              <Typography variant="subtitle1">
+                Rule: {selectedData.name}
+              </Typography>
               <Typography>Priority: {selectedData.priority}</Typography>
               <Typography>Action: {selectedData.action}</Typography>
             </>

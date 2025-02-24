@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Container, Typography, CircularProgress, Paper } from "@mui/material";
+import {
+  Container,
+  Typography,
+  CircularProgress,
+  Paper
+} from "@mui/material";
 import axios from "axios";
 import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
 
-import layoutGraph from "./layoutGraph";  // Dagre
+import layoutGraph from "./layoutGraph"; // Dagre
 
 function getActionLabel(rule) {
   if (rule.Action) {
@@ -52,15 +57,15 @@ function buildSubRuleChain(parentNodeId, ruleGroup, nodes, edges) {
       style: {
         background: "#fbbf24",
         padding: 10,
-        borderRadius: 8,
-      },
+        borderRadius: 8
+      }
     });
     edges.push({
       id: `edge-${currentDiamond}-to-${diamondId}`,
       source: currentDiamond,
       target: diamondId,
       label: "Not Matched => next sub‐rule",
-      animated: true,
+      animated: true
     });
 
     // Action node
@@ -72,15 +77,15 @@ function buildSubRuleChain(parentNodeId, ruleGroup, nodes, edges) {
       style: {
         background: "#fde047",
         padding: 10,
-        borderRadius: 8,
-      },
+        borderRadius: 8
+      }
     });
     edges.push({
       id: `edge-${diamondId}-to-${actionId}`,
       source: diamondId,
       target: actionId,
       label: "Matched =>",
-      animated: true,
+      animated: true
     });
 
     // If sub-sub-rules exist, chain them
@@ -94,15 +99,15 @@ function buildSubRuleChain(parentNodeId, ruleGroup, nodes, edges) {
           background: "#4ade80",
           color: "#fff",
           padding: 10,
-          borderRadius: 8,
-        },
+          borderRadius: 8
+        }
       });
       edges.push({
         id: `edge-${actionId}-to-${subGroupStartId}`,
         source: actionId,
         target: subGroupStartId,
         label: "(Continue) => sub-rules",
-        animated: true,
+        animated: true
       });
       buildSubRuleChain(subGroupStartId, subRule.RuleGroup, nodes, edges);
     }
@@ -127,8 +132,8 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
       background: "#3b82f6",
       color: "#fff",
       padding: 10,
-      borderRadius: 8,
-    },
+      borderRadius: 8
+    }
   });
 
   let currentDiamond = startId;
@@ -147,15 +152,15 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
       style: {
         background: "#fbbf24",
         padding: 10,
-        borderRadius: 8,
-      },
+        borderRadius: 8
+      }
     });
     edges.push({
       id: `edge-${currentDiamond}-to-${diamondId}`,
       source: currentDiamond,
       target: diamondId,
       label: "Not Matched => next rule",
-      animated: true,
+      animated: true
     });
 
     // Action node if matched
@@ -167,15 +172,15 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
       style: {
         background: "#fde047",
         padding: 10,
-        borderRadius: 8,
-      },
+        borderRadius: 8
+      }
     });
     edges.push({
       id: `edge-${diamondId}-to-${actionId}`,
       source: diamondId,
       target: actionId,
       label: "Matched =>",
-      animated: true,
+      animated: true
     });
 
     // Sub-rules
@@ -189,15 +194,15 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
           background: "#4ade80",
           color: "#fff",
           padding: 10,
-          borderRadius: 8,
-        },
+          borderRadius: 8
+        }
       });
       edges.push({
         id: `edge-${actionId}-to-${subGroupStartId}`,
         source: actionId,
         target: subGroupStartId,
         label: "(Continue) => sub-rules",
-        animated: true,
+        animated: true
       });
 
       const lastSub = buildSubRuleChain(subGroupStartId, rule.RuleGroup, nodes, edges);
@@ -207,7 +212,7 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
           source: lastSub,
           target: `ruleCheck-${acl.Id}-${index + 1}`,
           label: "No sub‐rule matched => next top‐level rule",
-          animated: true,
+          animated: true
         });
       }
     }
@@ -227,15 +232,15 @@ function buildTopLevelRuleChain(acl, nodes, edges) {
       background: "#10b981",
       color: "#fff",
       padding: 10,
-      borderRadius: 8,
-    },
+      borderRadius: 8
+    }
   });
   edges.push({
     id: `edge-${lastDiamond}-to-default`,
     source: lastDiamond,
     target: defaultId,
     label: "Not Matched => default",
-    animated: true,
+    animated: true
   });
 }
 
