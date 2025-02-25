@@ -19,16 +19,8 @@ import HomeIcon from "@mui/icons-material/Home";
 
 // Example icons for nav items
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import AutoGraphIcon from "@mui/icons-material/AutoGraph";
-import DeviceHubIcon from "@mui/icons-material/DeviceHub";
-import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
-import ShuffleIcon from "@mui/icons-material/Shuffle";
 
 // Your WAF components
-import WafTreeDagreDetailed from "./components/WafTreeDagreDetailed";
-import WafTreeIfElseDetailed from "./components/WafTreeIfElseDetailed";
-import WafTree from "./components/WafTree";
-import WafRulesFlow from "./components/WafRulesFlow";
 import WAFRuleTree from "./components/ruleCheck";
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -110,14 +102,6 @@ export default function App() {
         );
       case "ruleCheck":
         return <WAFRuleTree />;
-      case "rulesFlow":
-        return <WafRulesFlow />;
-      case "dagre":
-        return <WafTreeDagreDetailed />;
-      case "ifelse":
-        return <WafTreeIfElseDetailed />;
-      case "simple":
-        return <WafTree />;
       default:
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -132,10 +116,6 @@ export default function App() {
   const navItems = [
     { key: "home", label: "Home", icon: <HomeIcon />, link: "/" },
     { key: "ruleCheck", label: "Rule Check", icon: <DashboardIcon /> },
-    { key: "rulesFlow", label: "WafRulesFlow", icon: <AutoGraphIcon /> },
-    { key: "dagre", label: "Dagre Detailed", icon: <DeviceHubIcon /> },
-    { key: "ifelse", label: "If–Then–Else", icon: <CompareArrowsIcon /> },
-    { key: "simple", label: "Simple WafTree", icon: <ShuffleIcon /> }
   ];
 
   return (
