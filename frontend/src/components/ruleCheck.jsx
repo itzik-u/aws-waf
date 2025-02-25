@@ -4,14 +4,20 @@ import Elk from 'elkjs/lib/elk.bundled.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-// --- MUI imports for layout & styling ---
-import { Box, Stack, Typography, Button } from '@mui/material';
+// MUI imports
+import {
+  Box,
+  Stack,
+  Typography,
+  Button,
+  Paper,
+  Divider
+} from '@mui/material';
 
 import appsflyerRules from '../data/appsflyerRules.json';
 
 /**
  * Recursively extracts label keys from nested statements
- * (AndStatement, OrStatement, NotStatement, RateBasedStatement, etc.).
  */
 function extractAllLabelKeys(statement) {
   if (!statement) return [];
@@ -213,10 +219,16 @@ const WAFRuleTree = () => {
 
   function drawGraph(nodes, links) {
     const width = 1200;
-    const height = 1200;
+    const height = 1000;
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
-    svg.attr('width', width).attr('height', height);
+
+    // White background for the entire SVG
+    svg
+      .attr('width', width)
+      .attr('height', height)
+      .style('border', '1px solid #ddd')
+      .style('background-color', darkTheme ? '#222' : '#f5f5f5');
 
     const zoomBehavior = d3.zoom()
       .scaleExtent([0.1, 2])
@@ -270,11 +282,10 @@ const WAFRuleTree = () => {
 
     // Node color logic
     function getNodeColor(d) {
-      // "formal" palette
-      if (d.action === 'Block') return '#8B0000';   // dark red
-      if (d.action === 'Count') return '#006400';   // dark green
-      if (d.dependsOn.length > 0) return '#8B7500'; // dark goldenrod
-      return '#2F4F4F';                              // dark slate gray
+      if (d.action === 'Block') return '#8B0000';    // dark red
+      if (d.action === 'Count') return '#1060A5';    // bluish
+      if (d.dependsOn.length > 0) return '#8B7500';  // goldenrod
+      return '#2F4F4F';                              // slate gray
     }
 
     function highlightParentsAndChildren(node) {
@@ -367,7 +378,7 @@ const WAFRuleTree = () => {
       const fullHeight = bounds.height;
       const midX = bounds.x + fullWidth / 2;
       const midY = bounds.y + fullHeight / 2;
-    
+
       const scale = Math.min(
         width / (fullWidth * 1.2),
         height / (fullHeight * 1.2),
@@ -375,7 +386,7 @@ const WAFRuleTree = () => {
       );
       const translate = [
         width / 2 - scale * midX,
-        height /3 - scale * midY
+        height / 3 - scale * midY
       ];
 
       svg.transition()
@@ -387,12 +398,10 @@ const WAFRuleTree = () => {
     }, 0);
   }
 
-  // Toggle theme
   function toggleTheme() {
     setDarkTheme(!darkTheme);
   }
 
-  // Close panel
   function closePanel() {
     setSelectedNode(null);
   }
@@ -440,7 +449,7 @@ const WAFRuleTree = () => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
 
-    const canvas = await html2canvas(svgRef.current, {
+    const canvas = await html2canvas(svgElement, {
       x: rect.left,
       y: rect.top,
       width: rect.width,
@@ -462,41 +471,62 @@ const WAFRuleTree = () => {
       sx={{
         position: 'relative',
         minHeight: '100vh',
-        backgroundColor: darkTheme ? '#121212' : '#ffffff',
+        backgroundColor: darkTheme ? '#121212' : '#f0f0f0',
         color: darkTheme ? '#eeeeee' : '#000000',
         transition: 'background-color 0.3s ease, color 0.3s ease',
         pb: 4,
-        px: 2,
-        pt: 2
+        px: { xs: 2, md: 4 },
+        pt: { xs: 2, md: 4 }
       }}
     >
-      <Typography variant="h5" gutterBottom>
-        Appsflyer Full Project (ELK Layout)
-      </Typography>
-      <Typography variant="subtitle1" gutterBottom sx={{ mb: 2 }}>
-        Dark Theme Toggle + Exports
-      </Typography>
+      {/* 
+        1) "Figma Imports" style container 
+           (similar to the screenshot with big heading, subtext, 2 buttons)
+      */}
+      <Paper
+        elevation={2}
+        sx={{
+          p: { xs: 2, md: 4 },
+          mb: 3,
+          borderRadius: 2
+        }}
+      >
+        <Typography variant="h4" gutterBottom>
+          WAF Explorer
+        </Typography>
+        <Typography variant="body1" sx={{ mb: 2 }}>
+          Use the waf explorer to view the appsflyer rules tree
+        </Typography>
 
-      {/* Button bar, centered */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} justifyContent="center">
-        <Button variant="contained" onClick={toggleTheme}>
-          {darkTheme ? 'Light Theme' : 'Dark Theme'}
-        </Button>
-        <Button variant="outlined" onClick={exportAsPNG}>
-          Export as PNG
-        </Button>
-        <Button variant="outlined" onClick={exportAsPDF}>
-          Export as PDF
-        </Button>
-      </Stack>
+        {/* Divider to separate "Figma Imports" from the "Dark Theme / Exports" row */}
+        <Divider sx={{ my: 2 }} />
 
-      {/* Side panel for details */}
+        {/* 2) Your existing "Dark Theme Toggle + Exports" row */}
+        <Stack direction="row" spacing={2} justifyContent="flex-start">
+          <Button variant="contained" onClick={toggleTheme}>
+            {darkTheme ? 'Light Theme' : 'Dark Theme'}
+          </Button>
+          <Button variant="outlined" onClick={exportAsPNG}>
+            Export as PNG
+          </Button>
+          <Button variant="outlined" onClick={exportAsPDF}>
+            Export as PDF
+          </Button>
+        </Stack>
+      </Paper>
+
+      {/* 3) The actual D3 diagram */}
+      <Box sx={{ overflow: 'auto' }}>
+        <svg ref={svgRef} />
+      </Box>
+
+      {/* 4) The side panel for details */}
       {selectedNode && (
         <Box
           sx={{
             position: 'absolute',
             right: '10px',
-            top: '120px',
+            top: '160px',
             width: '300px',
             maxHeight: '70vh',
             overflowY: 'auto',
@@ -530,9 +560,6 @@ const WAFRuleTree = () => {
           </Box>
         </Box>
       )}
-
-      {/* The SVG for D3 rendering */}
-      <svg ref={svgRef} />
     </Box>
   );
 };
