@@ -1,0 +1,34 @@
+<!-- Approximate AppsFlyer logo in #220d4e -->
+<svg
+  width="250"
+  height="60"
+  viewBox="0 0 250 60"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <title>AppsFlyer Logo (Approx.)</title>
+
+  <!-- ICON (rough approximation) -->
+  <g fill="#220d4e">
+    <!-- Large diamond (top-left) -->
+    <polygon points="30,15 15,0 30,-15 45,0" transform="translate(0,30)"/>
+    <!-- Small diamond (top-right) -->
+    <polygon points="20,10 10,0 20,-10 30,0" transform="translate(45,30)"/>
+    <!-- Small diamond (bottom-left) -->
+    <polygon points="20,10 10,0 20,-10 30,0" transform="translate(0,45) rotate(-90 15 0)"/>
+    <!-- Large diamond (bottom-right) -->
+    <polygon points="30,15 15,0 30,-15 45,0" transform="translate(45,30) rotate(90 15 0)"/>
+  </g>
+
+  <!-- TEXT (approximate font/size) -->
+  <text
+    x="90"
+    y="35"
+    fill="#220d4e"
+    font-size="20"
+    font-family="Arial, sans-serif"
+    font-weight="bold"
+  >
+    AppsFlyer
+  </text>
+</svg>
