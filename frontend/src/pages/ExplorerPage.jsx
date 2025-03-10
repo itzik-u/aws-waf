@@ -19,11 +19,17 @@ export default function ExplorerPage() {
     }
   }, []);
 
+  // Handler for rule changes from WAFRuleTree
+  const handleRulesChanged = (newRules) => {
+    console.log('Rules updated in ExplorerPage:', newRules);
+    setRules(newRules);
+  };
+
   return (
     <Box sx={{ display: 'flex', width: '100%', height: '100vh' }}>
       <Sidebar view={view} setView={setView} />
       <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
-        {view === 'tree' && <WAFRuleTree />}
+        {view === 'tree' && <WAFRuleTree initialRules={rules} onRulesChanged={handleRulesChanged} />}
         {view === 'debugger' && <RequestDebugger rules={rules} />}
       </Box>
     </Box>

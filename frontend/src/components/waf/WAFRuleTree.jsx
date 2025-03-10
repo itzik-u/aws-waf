@@ -10,7 +10,7 @@ import WarningsPopup from './Refactoring1/UI components/WarningsPopup';
 import GraphContainer from './Refactoring1/UI components/GraphContainer';
 
 // קומפוננטת WAFRuleTree - מנהלת את עץ החוקים, הטעינה, הציור והפופ-אפים
-export default function WAFRuleTree() {
+export default function WAFRuleTree({ initialRules = null, onRulesChanged = null }) {
   const { darkTheme } = useThemeContext();
   const svgRef = useRef(null);
 
@@ -18,10 +18,10 @@ export default function WAFRuleTree() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [graphData, setGraphData] = useState(null);
-  const [rulesData, setRulesData] = useState(null);
+  const [rulesData, setRulesData] = useState(initialRules);
   const [aclDetails, setAclDetails] = useState({});
 
-  const [loaderPopupOpen, setLoaderPopupOpen] = useState(true);
+  const [loaderPopupOpen, setLoaderPopupOpen] = useState(!initialRules);
   const [rulePopupOpen, setRulePopupOpen] = useState(false);
   const [warningsPopupOpen, setWarningsPopupOpen] = useState(false);
 
@@ -91,6 +91,23 @@ export default function WAFRuleTree() {
     setWarningsPopupOpen(false);
   };
 
+  // Handle rules changes and notify parent component
+  const handleRulesDataChange = useCallback((newRules) => {
+    setRulesData(newRules);
+    // Notify parent component about the updated rules
+    if (onRulesChanged && typeof onRulesChanged === 'function') {
+      onRulesChanged(newRules);
+    }
+  }, [onRulesChanged]);
+
+  // Update rulesData if initialRules changes
+  useEffect(() => {
+    if (initialRules && initialRules.length > 0) {
+      handleRulesDataChange(initialRules);
+      setLoaderPopupOpen(false);
+    }
+  }, [initialRules, handleRulesDataChange]);
+
   return (
     <Box sx={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
       {/* מיכל הגרף שבו יוצג ה-SVG */}
@@ -120,8 +137,9 @@ export default function WAFRuleTree() {
         <RulesLoaderPopup
           open={loaderPopupOpen}
           onRulesReceived={(data) => {
-            setRulesData(data.rules||data);
-            setAclDetails({aclName: data.Name||'local json',capacity: data.Capacity||0});
+            const newRules = data.rules || data;
+            handleRulesDataChange(newRules);
+            setAclDetails({ aclName: data.Name || 'local json', capacity: data.Capacity || 0 });
             setLoaderPopupOpen(false);
           }}
           onClose={() => { setLoaderPopupOpen(false) }}

@@ -46,7 +46,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
  * 3. See which WAF rules would be triggered by the request
  * 4. View detailed information about rule matches
  */
-const RequestDebugger = ({ rules }) => {
+const RequestDebugger = ({ rules = [] }) => {
     const [loading, setLoading] = useState(false);
     const [testResults, setTestResults] = useState(null);
     const [stepMode, setStepMode] = useState(false);
@@ -64,6 +64,14 @@ const RequestDebugger = ({ rules }) => {
         headers: [{ name: 'User-Agent', value: 'Mozilla/5.0' }],
         body: ''
     });
+
+    // Add useEffect to log when rules are updated
+    useEffect(() => {
+        console.log('[RequestDebugger] Rules updated:', rules);
+    }, [rules]);
+
+    // Add safe access to rules with fallback
+    const safeRules = Array.isArray(rules) ? rules : [];
 
     // Reset rule evaluation state
     const resetRuleEvaluation = () => {
@@ -159,39 +167,52 @@ const RequestDebugger = ({ rules }) => {
                 setCurrentRequestState(initialRequestState);
 
                 // Start with the first rule
-                const firstRule = rules[0];
+                const firstRule = safeRules[0];
                 if (firstRule) {
-                    const result = simulateRuleEvaluation(testRequest, firstRule, new Set());
-                    setRuleHistory([{
-                        rule: firstRule,
-                        result: result,
-                        index: 0
-                    }]);
+                    try {
+                        const initialLabels = new Set();
+                        const result = simulateRuleEvaluation(testRequest, firstRule, initialLabels);
+                        setRuleHistory([{
+                            rule: firstRule,
+                            result: result,
+                            index: 0
+                        }]);
 
-                    // Update the request state with any changes from the first rule match
-                    if (result.matched) {
-                        const updatedRequest = updateRequestState(initialRequestState, result, firstRule);
-                        setCurrentRequestState(updatedRequest);
+                        // Update the request state with any changes from the first rule match
+                        if (result && result.matched) {
+                            const updatedRequest = updateRequestState(initialRequestState, result, firstRule);
+                            setCurrentRequestState(updatedRequest);
 
-                        // Add labels if the rule matched and has labels
-                        if (firstRule.RuleLabels) {
-                            const newLabels = new Set();
-                            firstRule.RuleLabels.forEach(label => newLabels.add(label.Name));
-                            setTriggeredLabels(newLabels);
+                            // Add labels if the rule matched and has labels
+                            if (firstRule.RuleLabels && Array.isArray(firstRule.RuleLabels)) {
+                                const newLabels = new Set();
+                                firstRule.RuleLabels.forEach(label => {
+                                    if (label && label.Name) {
+                                        newLabels.add(label.Name);
+                                    }
+                                });
+                                setTriggeredLabels(newLabels);
+                            }
                         }
-                    }
 
-                    setCurrentRuleIndex(0);
+                        setCurrentRuleIndex(0);
+                    } catch (error) {
+                        console.error('Error evaluating first rule:', error);
+                        showMessage('Error in step-by-step evaluation: ' + error.message, 'error');
+                    }
+                } else {
+                    showMessage('No rules to evaluate', 'warning');
                 }
 
                 showMessage('Step-by-step mode started. Rules will be evaluated one by one.');
             } else {
                 // Full mode - evaluate all rules at once
-                const matchedRules = evaluateRulesAgainstRequest(testRequest, rules);
+                const { matchedRules, labelsGenerated } = evaluateRulesAgainstRequest(testRequest, safeRules);
 
                 setTestResults({
                     request: testRequest,
                     matchedRules: matchedRules,
+                    labelsGenerated: Array.from(labelsGenerated),
                     timestamp: new Date().toISOString()
                 });
 
@@ -207,30 +228,44 @@ const RequestDebugger = ({ rules }) => {
     };
 
     // Evaluate rules against a request (client-side simulation)
-    const evaluateRulesAgainstRequest = (request, rules) => {
-        if (!rules || !Array.isArray(rules)) return [];
+    const evaluateRulesAgainstRequest = (request, rulesArray) => {
+        if (!rulesArray || !Array.isArray(rulesArray) || rulesArray.length === 0) {
+            console.warn('[RequestDebugger] No rules to evaluate');
+            return { matchedRules: [], labelsGenerated: [] };
+        }
 
         const matchedRules = [];
+        const labelsGenerated = new Set();
 
         // Go through each rule and check if it matches
-        rules.forEach(rule => {
+        rulesArray.forEach(rule => {
             const matchResult = simulateRuleEvaluation(request, rule, new Set());
             if (matchResult.matched) {
                 matchedRules.push({
                     rule: rule,
                     result: matchResult
                 });
+                if (matchResult.labelsGenerated) {
+                    matchResult.labelsGenerated.forEach(label => labelsGenerated.add(label));
+                }
             }
         });
 
-        return matchedRules;
+        return { matchedRules, labelsGenerated };
     };
 
     // Simulate rule evaluation against a request
-    const simulateRuleEvaluation = (request, rule, activeLabels = new Set()) => {
+    const simulateRuleEvaluation = (request, rule, existingLabels) => {
+        if (!rule) {
+            console.warn('[RequestDebugger] No rule provided for evaluation');
+            return { isMatch: false, labelsGenerated: [], ruleName: 'Unknown' };
+        }
+
         let matched = false;
         let matchDetails = {};
         let actions = [];
+        // Initialize labelsGenerated as a Set to collect labels
+        const labelsGenerated = new Set();
 
         // Simple simulation for demonstration purposes
         try {
@@ -254,6 +289,28 @@ const RequestDebugger = ({ rules }) => {
                                 constraint: byteMatch.PositionalConstraint,
                                 matchValue
                             };
+                        }
+                    }
+
+                    // Handle AllQueryArguments field type
+                    if (!matched && byteMatch.FieldToMatch.AllQueryArguments && request.queryString) {
+                        // For AllQueryArguments, we check if any query parameter value contains the search string
+                        const queryParams = parseQueryString(request.queryString);
+
+                        // Check each parameter value
+                        for (const paramName in queryParams) {
+                            const paramValue = queryParams[paramName];
+
+                            if (checkStringMatch(paramValue, matchValue, byteMatch.PositionalConstraint)) {
+                                matched = true;
+                                matchDetails = {
+                                    field: `AllQueryArguments:${paramName}`,
+                                    value: paramValue,
+                                    constraint: byteMatch.PositionalConstraint,
+                                    matchValue
+                                };
+                                break;
+                            }
                         }
                     }
 
@@ -341,7 +398,7 @@ const RequestDebugger = ({ rules }) => {
                     const key = rule.Statement.LabelMatchStatement.Key;
 
                     // Check if this label was previously set
-                    matched = activeLabels.has(key);
+                    matched = existingLabels.has(key);
 
                     if (matched) {
                         matchDetails = {
@@ -359,7 +416,7 @@ const RequestDebugger = ({ rules }) => {
 
                     for (const stmt of statements) {
                         const subRule = { ...rule, Statement: stmt };
-                        const subResult = simulateRuleEvaluation(request, subRule);
+                        const subResult = simulateRuleEvaluation(request, subRule, existingLabels);
 
                         if (!subResult.matched) {
                             matched = false;
@@ -384,7 +441,7 @@ const RequestDebugger = ({ rules }) => {
 
                     for (const stmt of statements) {
                         const subRule = { ...rule, Statement: stmt };
-                        const subResult = simulateRuleEvaluation(request, subRule);
+                        const subResult = simulateRuleEvaluation(request, subRule, existingLabels);
 
                         if (subResult.matched) {
                             matched = true;
@@ -410,6 +467,13 @@ const RequestDebugger = ({ rules }) => {
         if (matched) {
             // Check for labels being added
             if (rule.RuleLabels && rule.RuleLabels.length > 0) {
+                // Add the rule's labels to the generated labels set
+                rule.RuleLabels.forEach(label => {
+                    if (label && label.Name) {
+                        labelsGenerated.add(label.Name);
+                    }
+                });
+
                 actions.push({
                     type: 'labels',
                     labels: rule.RuleLabels.map(label => label.Name)
@@ -428,7 +492,7 @@ const RequestDebugger = ({ rules }) => {
             }
 
             // Check for actions like Block, Allow, Count, etc.
-            const actionType = Object.keys(rule.Action)[0];
+            const actionType = rule?.Action ? Object.keys(rule.Action)[0] : 'Unknown';
             actions.push({
                 type: 'action',
                 action: actionType
@@ -451,7 +515,14 @@ const RequestDebugger = ({ rules }) => {
             }
         }
 
-        return { matched, details: matchDetails, actions };
+        const result = {
+            matched,
+            details: matchDetails,
+            actions,
+            labelsGenerated: Array.from(labelsGenerated)
+        };
+
+        return result;
     };
 
     // Helper function to update the request state based on rule match results
@@ -482,7 +553,7 @@ const RequestDebugger = ({ rules }) => {
         }
 
         // Record the action taken
-        const actionType = Object.keys(rule.Action)[0];
+        const actionType = rule?.Action ? Object.keys(rule.Action)[0] : 'Unknown';
         updatedRequest.actions.push({
             type: actionType,
             rule: rule.Name,
@@ -496,13 +567,13 @@ const RequestDebugger = ({ rules }) => {
 
     // Step to the next rule
     const stepToNextRule = () => {
-        if (!rules || currentRuleIndex >= rules.length - 1) {
+        if (!safeRules || currentRuleIndex >= safeRules.length - 1) {
             showMessage('You have reached the end of the rule set', 'info');
             return;
         }
 
         const nextIndex = currentRuleIndex + 1;
-        const nextRule = rules[nextIndex];
+        const nextRule = safeRules[nextIndex];
 
         // Convert request config to the format needed for evaluation
         const testRequest = {
@@ -544,13 +615,91 @@ const RequestDebugger = ({ rules }) => {
         setCurrentRuleIndex(nextIndex);
     };
 
-    // Helper function to extract query parameter value
-    const getQueryParameterValue = (queryString, paramName) => {
-        const params = new URLSearchParams(queryString);
-        return params.get(paramName);
+    // Step to the previous rule
+    const stepToPreviousRule = () => {
+        if (currentRuleIndex <= 0 || ruleHistory.length <= 1) {
+            showMessage('You are at the beginning of the rule evaluation', 'info');
+            return;
+        }
+
+        // Remove the last rule from history
+        const newHistory = [...ruleHistory];
+        newHistory.pop();
+
+        // Get the last rule in the new history
+        const previousEntry = newHistory[newHistory.length - 1];
+
+        // Reset to the previous state
+        setRuleHistory(newHistory);
+        setCurrentRuleIndex(previousEntry.index);
+
+        // Reset the labels and request state to what they were before
+        // We need to recalculate from the beginning
+        const newLabels = new Set();
+        let newRequestState = {
+            uri: requestConfig.path,
+            method: requestConfig.method,
+            headers: requestConfig.headers.reduce((obj, header) => {
+                if (header.name && header.value) {
+                    obj[header.name.toLowerCase()] = [{ value: header.value }];
+                }
+                return obj;
+            }, {}),
+            queryString: requestConfig.queryParams || '',
+            body: requestConfig.body || '',
+            addedLabels: [],
+            addedHeaders: [],
+            actions: []
+        };
+
+        // Replay all rules up to the previous one to rebuild the state properly
+        for (let i = 0; i < newHistory.length; i++) {
+            const historyEntry = newHistory[i];
+            if (historyEntry.result.matched) {
+                // Add any labels from this rule
+                const rule = historyEntry.rule;
+                if (rule.RuleLabels) {
+                    rule.RuleLabels.forEach(label => {
+                        if (label && label.Name) {
+                            newLabels.add(label.Name);
+                        }
+                    });
+                }
+
+                // Update the request state
+                newRequestState = updateRequestState(newRequestState, historyEntry.result, rule);
+            }
+        }
+
+        setTriggeredLabels(newLabels);
+        setCurrentRequestState(newRequestState);
+
+        showMessage('Moved back to previous rule', 'info');
     };
 
-    // Helper function to check string match based on positional constraint
+    // Helper function to get a specific query parameter value
+    const getQueryParameterValue = (queryString, paramName) => {
+        return parseQueryString(queryString)[paramName];
+    };
+
+    // Helper function to parse a query string into a key-value object
+    const parseQueryString = (queryString) => {
+        if (!queryString) return {};
+
+        const params = {};
+        const queryParts = queryString.split('&');
+
+        queryParts.forEach(part => {
+            const [name, value] = part.split('=');
+            if (name) {
+                params[decodeURIComponent(name)] = decodeURIComponent(value || '');
+            }
+        });
+
+        return params;
+    };
+
+    // Helper function to check string matches based on positional constraint
     const checkStringMatch = (value, matchValue, constraint) => {
         if (!value || !matchValue) return false;
 
@@ -884,6 +1033,57 @@ const RequestDebugger = ({ rules }) => {
         );
     };
 
+    // Custom Snackbar to prevent prop leaking
+    const CustomSnackbar = (props) => {
+        const { open, message, severity, onClose, anchorOrigin } = props;
+
+        // Return null when not open to avoid rendering anything
+        if (!open) return null;
+
+        // Style for positioning the snackbar based on anchorOrigin
+        const getPositionStyle = () => {
+            const horizontal = anchorOrigin?.horizontal || 'center';
+            const vertical = anchorOrigin?.vertical || 'bottom';
+
+            return {
+                position: 'fixed',
+                zIndex: 1400,
+                left: horizontal === 'left' ? '24px' : horizontal === 'right' ? 'auto' : '50%',
+                right: horizontal === 'right' ? '24px' : 'auto',
+                bottom: vertical === 'bottom' ? '24px' : 'auto',
+                top: vertical === 'top' ? '24px' : 'auto',
+                transform: horizontal === 'center' ? 'translateX(-50%)' : 'none',
+            };
+        };
+
+        // Auto-hide effect
+        useEffect(() => {
+            if (open) {
+                const timer = setTimeout(() => {
+                    onClose();
+                }, 6000);
+
+                return () => clearTimeout(timer);
+            }
+        }, [open, onClose]);
+
+        return (
+            <Box sx={getPositionStyle()}>
+                <Alert
+                    severity={severity}
+                    onClose={onClose}
+                    sx={{
+                        boxShadow: '0px 3px 5px -1px rgba(0,0,0,0.2), 0px 6px 10px 0px rgba(0,0,0,0.14), 0px 1px 18px 0px rgba(0,0,0,0.12)',
+                        minWidth: '288px',
+                        maxWidth: '500px'
+                    }}
+                >
+                    {message}
+                </Alert>
+            </Box>
+        );
+    };
+
     return (
         <Container maxWidth="xl" sx={{ pt: 3 }}>
             <Typography variant="h4" component="h1" gutterBottom>
@@ -1027,7 +1227,7 @@ const RequestDebugger = ({ rules }) => {
                                 Step-by-Step Evaluation
                             </Typography>
                             <Chip
-                                label={`Rule ${currentRuleIndex + 1} of ${rules.length}`}
+                                label={`Rule ${currentRuleIndex + 1} of ${safeRules.length}`}
                                 color="secondary"
                                 sx={{ ml: 2 }}
                             />
@@ -1037,13 +1237,13 @@ const RequestDebugger = ({ rules }) => {
 
                         <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8f8f8' }}>
                             <Typography variant="subtitle1" gutterBottom>Current Rule:</Typography>
-                            <Typography><strong>Name:</strong> {rules[currentRuleIndex].Name}</Typography>
-                            <Typography><strong>Priority:</strong> {rules[currentRuleIndex].Priority}</Typography>
-                            <Typography><strong>Action:</strong> {Object.keys(rules[currentRuleIndex].Action)[0]}</Typography>
+                            <Typography><strong>Name:</strong> {safeRules[currentRuleIndex]?.Name || 'Unknown'}</Typography>
+                            <Typography><strong>Priority:</strong> {safeRules[currentRuleIndex]?.Priority || 'Unknown'}</Typography>
+                            <Typography><strong>Action:</strong> {safeRules[currentRuleIndex]?.Action ? Object.keys(safeRules[currentRuleIndex]?.Action)[0] : 'Unknown'}</Typography>
 
-                            {rules[currentRuleIndex].RuleLabels && (
+                            {safeRules[currentRuleIndex]?.RuleLabels && (
                                 <Typography>
-                                    <strong>Labels:</strong> {rules[currentRuleIndex].RuleLabels.map(l => l.Name).join(', ')}
+                                    <strong>Labels:</strong> {safeRules[currentRuleIndex]?.RuleLabels.map(l => l.Name).join(', ')}
                                 </Typography>
                             )}
 
@@ -1069,36 +1269,63 @@ const RequestDebugger = ({ rules }) => {
                             )}
                         </Paper>
 
-                        <Typography variant="subtitle1" gutterBottom>Active Labels:</Typography>
-                        <Box sx={{ mb: 2 }}>
-                            {Array.from(triggeredLabels).length === 0 ? (
-                                <Typography variant="body2">No labels have been triggered yet</Typography>
-                            ) : (
-                                Array.from(triggeredLabels).map(label => (
-                                    <Chip key={label} label={label} color="primary" sx={{ m: 0.5 }} />
-                                ))
-                            )}
-                        </Box>
-
-                        <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                        {/* Step-by-step navigation controls */}
+                        <Box display="flex" gap={2} mt={2}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={stepToPreviousRule}
+                                disabled={currentRuleIndex <= 0}
+                                startIcon={<NavigateNextIcon style={{ transform: 'rotate(180deg)' }} />}
+                            >
+                                Previous Rule
+                            </Button>
                             <Button
                                 variant="contained"
                                 color="primary"
                                 onClick={stepToNextRule}
-                                disabled={currentRuleIndex >= rules.length - 1}
+                                disabled={currentRuleIndex >= safeRules.length - 1}
+                                endIcon={<NavigateNextIcon />}
                             >
                                 Next Rule
                             </Button>
                             <Button
                                 variant="outlined"
                                 onClick={resetRuleEvaluation}
+                                color="secondary"
                             >
-                                Reset
+                                Reset Evaluation
                             </Button>
                         </Box>
 
-                        <Divider sx={{ my: 3 }} />
+                        {/* Add a section to display active labels */}
+                        <Box sx={{ mt: 3, p: 2, bgcolor: '#f0f0f0', borderRadius: 1 }}>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Active Labels:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {Array.from(triggeredLabels).length > 0 ? (
+                                    Array.from(triggeredLabels).map((label, idx) => (
+                                        <Chip
+                                            key={idx}
+                                            label={label}
+                                            color="info"
+                                            size="small"
+                                            variant="outlined"
+                                        />
+                                    ))
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No labels active yet
+                                    </Typography>
+                                )}
+                            </Box>
+                        </Box>
 
+                        {/* Rule history */}
+                        <Typography variant="subtitle1" gutterBottom sx={{ mt: 3 }}>
+                            Evaluation History
+                        </Typography>
                         <Accordion>
                             <AccordionSummary
                                 expandIcon={<ExpandMoreIcon />}
@@ -1117,8 +1344,8 @@ const RequestDebugger = ({ rules }) => {
                                     <TableBody>
                                         {ruleHistory.map((historyItem, index) => (
                                             <TableRow key={index}>
-                                                <TableCell>{historyItem.rule.Name}</TableCell>
-                                                <TableCell>{historyItem.rule.Priority}</TableCell>
+                                                <TableCell>{historyItem.rule.Name || 'Unknown'}</TableCell>
+                                                <TableCell>{historyItem.rule.Priority || 'Unknown'}</TableCell>
                                                 <TableCell>
                                                     <Chip
                                                         label={historyItem.result.matched ? "MATCHED" : "NOT MATCHED"}
@@ -1177,27 +1404,25 @@ const RequestDebugger = ({ rules }) => {
                             <Divider sx={{ my: 3 }} />
 
                             <Typography variant="subtitle1" gutterBottom>Matched Rules</Typography>
-                            {testResults.matchedRules.length === 0 ? (
-                                <Typography>No rules were matched by this request.</Typography>
-                            ) : (
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Rule Name</TableCell>
-                                            <TableCell>Priority</TableCell>
-                                            <TableCell>Action</TableCell>
-                                            <TableCell>Match Details</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {testResults.matchedRules.map((matchResult, index) => (
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Rule Name</TableCell>
+                                        <TableCell>Priority</TableCell>
+                                        <TableCell>Action</TableCell>
+                                        <TableCell>Match Details</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {Array.isArray(testResults.matchedRules) && testResults.matchedRules.length > 0 ? (
+                                        testResults.matchedRules.map((matchResult, index) => (
                                             <TableRow key={index}>
-                                                <TableCell>{matchResult.rule.Name}</TableCell>
-                                                <TableCell>{matchResult.rule.Priority}</TableCell>
+                                                <TableCell>{matchResult.rule.Name || 'Unknown'}</TableCell>
+                                                <TableCell>{matchResult.rule.Priority || 'Unknown'}</TableCell>
                                                 <TableCell>
                                                     <Chip
-                                                        label={Object.keys(matchResult.rule.Action)[0]}
-                                                        color={matchResult.rule.Action.Block ? "error" : "primary"}
+                                                        label={matchResult.rule.Action ? Object.keys(matchResult.rule.Action)[0] : 'Unknown'}
+                                                        color={matchResult.rule.Action?.Block ? "error" : "primary"}
                                                         size="small"
                                                     />
                                                 </TableCell>
@@ -1220,17 +1445,97 @@ const RequestDebugger = ({ rules }) => {
                                                     </Accordion>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={4} sx={{ textAlign: 'center' }}>
+                                                No rules were matched by this request.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+
+                            {/* Add Labels Generated Section */}
+                            <Box sx={{ mt: 4 }}>
+                                <Typography variant="subtitle1" gutterBottom>Labels Generated</Typography>
+                                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8f8f8' }}>
+                                    {testResults.labelsGenerated && testResults.labelsGenerated.length > 0 ? (
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                            {testResults.labelsGenerated.map((label, idx) => (
+                                                <Chip
+                                                    key={idx}
+                                                    label={label}
+                                                    color="info"
+                                                    size="small"
+                                                    sx={{ my: 0.5 }}
+                                                />
+                                            ))}
+                                        </Box>
+                                    ) : (
+                                        <Typography variant="body2">No labels were generated by this request.</Typography>
+                                    )}
+                                </Paper>
+                            </Box>
+
+                            {/* Add Actions Taken Section */}
+                            <Box sx={{ mt: 3 }}>
+                                <Typography variant="subtitle1" gutterBottom>Actions Taken</Typography>
+                                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8f8f8' }}>
+                                    {Array.isArray(testResults.matchedRules) && testResults.matchedRules.length > 0 ? (
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Rule</TableCell>
+                                                    <TableCell>Action</TableCell>
+                                                    <TableCell>Outcome</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {testResults.matchedRules.map((matchResult, idx) => {
+                                                    const actionType = matchResult.rule.Action ? Object.keys(matchResult.rule.Action)[0] : 'Unknown';
+                                                    let chipColor = 'primary';
+                                                    let outcome = 'Counted';
+
+                                                    if (actionType === 'Block') {
+                                                        chipColor = 'error';
+                                                        outcome = 'Request Blocked';
+                                                    } else if (actionType === 'Allow') {
+                                                        chipColor = 'success';
+                                                        outcome = 'Request Allowed';
+                                                    } else if (actionType === 'CAPTCHA' || actionType === 'Challenge') {
+                                                        chipColor = 'warning';
+                                                        outcome = actionType === 'CAPTCHA' ? 'CAPTCHA Challenge' : 'Browser Challenge';
+                                                    }
+
+                                                    return (
+                                                        <TableRow key={idx}>
+                                                            <TableCell>{matchResult.rule.Name}</TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    label={actionType}
+                                                                    color={chipColor}
+                                                                    size="small"
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>{outcome}</TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    ) : (
+                                        <Typography variant="body2">No actions were taken for this request.</Typography>
+                                    )}
+                                </Paper>
+                            </Box>
                         </Paper>
                     )
                 )}
             </Stack>
 
             {/* Add floating Next Rule button when in step mode and not at the end */}
-            {stepMode && ruleHistory.length > 0 && currentRuleIndex < rules.length - 1 && (
+            {stepMode && ruleHistory.length > 0 && currentRuleIndex < safeRules.length - 1 && (
                 <Fab
                     color="primary"
                     onClick={stepToNextRule}
@@ -1246,20 +1551,13 @@ const RequestDebugger = ({ rules }) => {
                 </Fab>
             )}
 
-            <Snackbar
+            <CustomSnackbar
                 open={snackbar.open}
-                autoHideDuration={6000}
+                message={snackbar.message}
+                severity={snackbar.severity}
                 onClose={handleCloseSnackbar}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-                <Alert
-                    onClose={handleCloseSnackbar}
-                    severity={snackbar.severity}
-                    sx={{ width: '100%' }}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
+            />
         </Container>
     );
 };

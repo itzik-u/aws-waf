@@ -7,12 +7,23 @@ export default class RuleTransformer {
   }
 
   transformRules(rulesArray) {
+    if (!rulesArray || !Array.isArray(rulesArray)) {
+      console.error('[RuleTransformer] Invalid rulesArray:', rulesArray);
+      return { nodes: [], links: [], globalWarnings: [] };
+    }
 
     const sortedRules = [...rulesArray].sort((a, b) => a.Priority - b.Priority);
     const newRules = [];
 
     sortedRules.forEach((rule, index) => {
       this.warnings = [];
+
+      // Skip invalid rules
+      if (!rule) {
+        console.warn('[RuleTransformer] Skipping null or undefined rule at index', index);
+        return;
+      }
+
       this.validateRule(rule);
       const labelState = this.labelStatement(rule.Statement, newRules, index);
       const labelScopeDown = rule.Statement?.RateBasedStatement?.ScopeDownStatement ?
@@ -21,11 +32,13 @@ export default class RuleTransformer {
       const transformedRule = {
         json: JSON.stringify(rule, null, 2),
         id: index,
-        name: rule.Name,
+        name: rule.Name || `Unnamed Rule ${index}`,
         priority: rule.Priority,
-        action: Object.keys(rule.Action)[0],
+        action: rule.Action ? Object.keys(rule.Action)[0] : 'Unknown',
         ruleLabels: rule.RuleLabels?.map(label => label.Name) || [],
-        insertHeaders: rule.Action.Count?.CustomRequestHandling?.InsertHeaders?.map(h => { return { name: h.Name, value: h.Value } }) || [],
+        insertHeaders: rule.Action?.Count?.CustomRequestHandling?.InsertHeaders?.map(h => {
+          return { name: h.Name, value: h.Value }
+        }) || [],
         labelState: [...labelState, ...labelScopeDown],
         level: 0,
         warnings: [...this.warnings]
@@ -91,13 +104,16 @@ export default class RuleTransformer {
   }
 
   validateRule(rule) {
+    if (!rule) return;
+
     ['Name', 'Priority', 'Statement', 'Action'].forEach(key => {
       if (rule[key] === undefined) {
         this.warnings.push(`Missing required field: ${key}`);
       }
     });
 
-    if (rule.Name !== rule.VisibilityConfig.MetricName) {
+    if (rule.Name && rule.VisibilityConfig?.MetricName &&
+      rule.Name !== rule.VisibilityConfig.MetricName) {
       this.warnings.push(`Name and MetricName do not match`);
     }
   }
@@ -112,7 +128,7 @@ export default class RuleTransformer {
       }];
     }
 
-    if (statement.NotStatement?.Statement.LabelMatchStatement) {
+    if (statement.NotStatement?.Statement?.LabelMatchStatement) {
       return [{
         logic: 'NOT',
         depend: [{
@@ -123,24 +139,37 @@ export default class RuleTransformer {
     }
 
     const processStatements = (statements, logic) => {
+      if (!statements || !Array.isArray(statements)) {
+        return [];
+      }
+
       const labels = statements
+        .filter(Boolean)
         .flatMap(stmt => this.labelStatement(stmt, rules, currentIndex))
         .filter(Boolean);
       return labels.length > 0 ? [{ logic, depend: labels }] : [];
     };
 
-    if (statement.AndStatement) return processStatements(statement.AndStatement.Statements, 'AND');
+    if (statement.AndStatement?.Statements) {
+      return processStatements(statement.AndStatement.Statements, 'AND');
+    }
 
-    if (statement.OrStatement) return processStatements(statement.OrStatement.Statements, 'OR');
+    if (statement.OrStatement?.Statements) {
+      return processStatements(statement.OrStatement.Statements, 'OR');
+    }
 
     return [];
   }
 
   findParentDependencies(rules, name, currentIndex) {
-    const matchingRules = rules.filter(r => r.ruleLabels?.includes(name));
+    if (!name || !rules || !Array.isArray(rules)) {
+      return [];
+    }
+
+    const matchingRules = rules.filter(r => r?.ruleLabels?.includes(name));
 
     if (matchingRules.length === 0) {
-      if (!rules.some(r => r.RuleLabels?.some(l => l.Name === name))) {
+      if (!rules.some(r => r?.RuleLabels?.some(l => l?.Name === name))) {
         this.warnings.push(`Label '${name}' is not defined in any rule`);
       } else {
         this.warnings.push(`Label '${name}' is not defined in any rule with lower priority`);
@@ -149,11 +178,11 @@ export default class RuleTransformer {
     }
 
     return matchingRules.map(rule => {
-      if (['ALLOW', 'BLOCK'].includes(rule.action)) {
+      if (rule?.action && ['ALLOW', 'BLOCK'].includes(rule.action)) {
         this.warnings.push(`Label '${name}' is created in a terminal rule (${rule.action}) - this may affect rule evaluation`);
       }
       this.links.push({ source: currentIndex, target: rule.id });
-      return rule.name;
+      return rule.name || `Rule ${rule.id}`;
     });
   }
 
