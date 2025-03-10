@@ -17,6 +17,7 @@ import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   ChevronLeft as ChevronLeftIcon,
+  BugReport as DebugIcon,
 } from '@mui/icons-material';
 import { useThemeContext } from '../../context/ThemeContext';
 
@@ -33,6 +34,7 @@ export default function Sidebar({ view, setView }) {
 
   const menuItems = [
     { key: 'tree', label: 'WAF Tree', icon: <TreeIcon /> },
+    { key: 'debugger', label: 'Request Debugger', icon: <DebugIcon /> },
     {
       key: 'theme',
       label: darkTheme ? 'Light Mode' : 'Dark Mode',
@@ -125,8 +127,8 @@ export default function Sidebar({ view, setView }) {
                         ? '#9D6FE7'
                         : '#6938AF'
                       : darkTheme
-                      ? '#B0B0B0'
-                      : 'inherit',
+                        ? '#B0B0B0'
+                        : 'inherit',
                 }}
               >
                 {item.icon}
@@ -149,8 +151,8 @@ export default function Sidebar({ view, setView }) {
                             ? '#9D6FE7'
                             : '#6938AF'
                           : darkTheme
-                          ? '#E0E0E0'
-                          : 'inherit',
+                            ? '#E0E0E0'
+                            : 'inherit',
                     },
                   }}
                 />
